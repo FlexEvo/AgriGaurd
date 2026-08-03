@@ -1,0 +1,91 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+#include <String.h>
+
+//#include <WiFi_tester.h>
+//#include <WiFiClientSecure.h>
+
+//Global variables
+
+const char* ssid = "";       //Find better solution
+const char* password = "";      //Find better solution
+
+struct weather_API{
+
+  String description;
+  float API_temp;
+  float API_humidity;
+
+};
+
+
+////Weather API
+//const char* serverName = "";
+
+String API_URL = "https://api.openweathermap.org/data/2.5/weather?";
+String API_key = "3ca8b05fac70db4002e6b393c9dbb0eb";
+
+float LAT = -29.35080374459709;
+float LON = 27.601807742259524;
+
+
+void setup() {
+  
+  Serial.begin(115200);
+
+  WiFi.begin(ssid, password);
+
+  while(WiFi.status() != WL_CONNECTED){
+    delay(500);
+    Serial.println(".");
+  }
+
+  Serial.println("WiFi connected.");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+
+}
+
+void loop() {
+
+weather_API data;
+
+ if(WiFi.status() == WL_CONNECTED){
+  
+   HTTPClient httpObj;
+
+   httpObj.begin(API_URL + LAT + "LAT" + LON +"LON" + "&units = metric&appid=" + API_key);       //Sends an HTTP request with all data included e.g (LAT, LON, API_KEY).
+   
+   int httpCode = httpObj.GET();        //Creates a connection to send the HTTP request
+
+    //Confrims if data was recieved
+   if(httpCode > 0){
+    String Json_Data = httpObj.getString();      //Read data 
+    Serial.println(Json_Data);
+
+    //Retrieves weather data as json
+    DynamicJsonDocument doc(2048);
+    deserializeJson(doc, Json_Data);
+    JsonObject jsonOb = doc.as<JsonObject>();
+
+    //Display data
+    data.description = jsonOb["weather"][0]["description"].as<String>();
+    data.API_temp = jsonOb["main"]["temp"].as<float>();
+    data.API_humidity = jsonOb["main"]["humidity"].as<float>();
+
+    Serial.println(data.description);
+    Serial.println(data.API_temp);
+    Serial.println( data.API_humidity);
+
+  } else{
+    Serial.println("Error: Cannot retrieve data!");
+  }
+
+   httpObj.end();
+  }
+
+  delay(60000);
+
+}
+

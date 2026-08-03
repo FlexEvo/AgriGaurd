@@ -1,0 +1,100 @@
+#include "String"
+
+//SENSOR DATA
+#define sensorOutPut 12      //We get soil moisture data
+const int sampleSize = 10;
+const int rain_TimeStamp = 86400000;         //Record rain data hourly
+const int temperature_TimeStamp = 86400000;  //Record temperature data hourly  
+unsigned long timeCount = 0;
+const int soil_TimeStamp = 1800000;         //Record soil moisture data 30m
+ 
+int arrIndx = 0;
+
+enum SoilType{
+  CLAY, 
+  SANDY, 
+  LOAMY
+};
+
+struct Zone{
+  SoilType soilTyp;
+  float dryCalibration;
+  float wetCalibration;
+  float soilMoistureData[sampleSize];
+  unsigned long timeStampData[sampleSize];
+  float timePlaceHolder;
+  float soilPlaceHolder;
+  bool valveStatus;
+};
+
+Zone zone1;
+
+void recordSoilData(){          //This function will record data from sensors.
+    
+    if(millis() - timeCount >= soil_TimeStamp){
+      timeCount = millis();
+       zone1.soilPlaceHolder = analogRead(sensorOutPut);
+      zone1.timePlaceHolder = timeCount;      
+    }  
+}
+
+void convertData(){          //This function converts raw data into percentages and stores them.
+    float placeholder = 0;
+
+    placeholder = (zone1.dryCalibration - zone1.soilPlaceHolder) / (zone1.dryCalibration - zone1.wetCalibration) * 100;      //Convert each data into a percentage
+
+    if(placeholder < 0){
+      placeholder = 0;
+      zone1.soilMoistureData[arrIndx] = placeholder;
+    }
+    else if(placeholder > 100){
+      placeholder = 100;
+      zone1.soilMoistureData[arrIndx] = placeholder;
+    }
+
+    zone1.timeStampData[arrIndx] = time_placeHolder / 60000;       //Converts the millis time into minutes.
+
+    arrIndx++; 
+  
+}
+
+float getDryingRate() {          //This function will determine the drying rates of the soil.
+
+  float soil_dryRate = 0.0;
+
+  soil_dryRate = (zone1.soilMoistureData[sampleSize-1] - zone1.soilMoistureData[0]) / zone1.timeStampData[sampleSize-1] - zone1.timeStampData[0];
+
+  return soil_dryRate;
+}
+
+double getThreshold(){
+  
+  double soilThreshold = 0;
+  double base_thresholds = 37;
+  float dryRate = getDryingRate();
+
+  if(zone1.soilTp == CLAY){
+    soilThreshold = base_thresholds + tempPrec + dryRate - humidPerc;
+  }
+
+  return soilThreshold;
+}
+
+
+void detIrrigation(){
+
+double threshold = getThreshold();            //  This call the calculated threshold.
+//double weatherData;                           //This will call calculated rain prob.
+
+
+}
+
+
+void setup() {
+
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+
+}

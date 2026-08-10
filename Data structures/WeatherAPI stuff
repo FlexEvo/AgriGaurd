@@ -1,13 +1,8 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
-#include <String.h>
-
-//#include <WiFi_tester.h>
-//#include <WiFiClientSecure.h>
 
 //Global variables
-
 const char* ssid = "";       //Find better solution
 const char* password = "";      //Find better solution
 
@@ -16,18 +11,16 @@ struct weather_API{
   String description;
   float API_temp;
   float API_humidity;
+  float rain_prob;
 
 };
 
-
-////Weather API
-//const char* serverName = "";
-
-String API_URL = "https://api.openweathermap.org/data/2.5/weather?";
-String API_key = "3ca8b05fac70db4002e6b393c9dbb0eb";
+String API_URL = "https://pro.openweathermap.org/data/2.5/forecast/hourly?";
+String API_key = "3ca8b05fac70db4002e6b393c9dbb0eb";                  //Just an API placeholder and NOT for production 
 
 float LAT = -29.35080374459709;
 float LON = 27.601807742259524;
+weather_API data;
 
 
 void setup() {
@@ -47,16 +40,19 @@ void setup() {
 
 }
 
-void loop() {
+void getWeatherData(){
 
-weather_API data;
-
- if(WiFi.status() == WL_CONNECTED){
+//This condition checks if the system has connected to the internet
+ if(WiFi.status() == WL_CONNECTED){       
   
-   HTTPClient httpObj;
+   HTTPClient httpObj;          //This object will enable the system to make HTTP requests
 
-   httpObj.begin(API_URL + LAT + "LAT" + LON +"LON" + "&units = metric&appid=" + API_key);       //Sends an HTTP request with all data included e.g (LAT, LON, API_KEY).
-   
+  String requestURL = API_URL + "lat=" + String(LAT, 6) + "&lon=" + String(LON, 6) + "&units=metric" + "&appid=" + API_key;
+
+  httpObj.begin(requestURL);       //Sends an HTTP request with all data included e.g (LAT, LON, API_KEY).
+
+
+
    int httpCode = httpObj.GET();        //Creates a connection to send the HTTP request
 
     //Confrims if data was recieved
@@ -65,27 +61,37 @@ weather_API data;
     Serial.println(Json_Data);
 
     //Retrieves weather data as json
-    DynamicJsonDocument doc(2048);
-    deserializeJson(doc, Json_Data);
+    DynamicJsonDocument doc(8192);            //Memory allocated to store Json data
+    DeserializationError error = deserializeJson(doc, Json_Data);
+
+    if(error){
+    Serial.print("JSON error: ");
+    Serial.println(error.c_str());
+    return;
+    }
+
     JsonObject jsonOb = doc.as<JsonObject>();
 
     //Display data
-    data.description = jsonOb["weather"][0]["description"].as<String>();
-    data.API_temp = jsonOb["main"]["temp"].as<float>();
-    data.API_humidity = jsonOb["main"]["humidity"].as<float>();
-
-    Serial.println(data.description);
-    Serial.println(data.API_temp);
-    Serial.println( data.API_humidity);
-
-  } else{
+    data.description = jsonOb["list"][0]["weather"][0]["description"].as<String>();;
+    data.API_temp = jsonOb["list"][0]["main"]["temp"].as<float>();
+    data.API_humidity = jsonOb["list"][0]["main"]["humidity"].as<float>();
+    data.rain_prob = jsonOb["list"][0]["pop"].as<float>() * 100.0;
+    
+   } else{
     Serial.println("Error: Cannot retrieve data!");
   }
 
    httpObj.end();
   }
 
-  delay(60000);
+
+}
+
+void loop() {
+
+getWeatherData();
+delay(3600000);
 
 }
 

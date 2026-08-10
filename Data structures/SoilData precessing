@@ -1,7 +1,6 @@
-#include "String"
-
 //SENSOR DATA
 #define sensorOutPut 12      //We get soil moisture data
+#define echoPin 14           //This is connected to the echo pin of JSN-SR04T sensor.
 const int sampleSize = 10;
 const int rain_TimeStamp = 86400000;         //Record rain data hourly
 const int temperature_TimeStamp = 86400000;  //Record temperature data hourly  
@@ -16,25 +15,28 @@ enum SoilType{
   LOAMY
 };
 
+//  ->Side note: Expand the zone logic to accomodate multiple zones
 struct Zone{
   SoilType soilTyp;
-  float dryCalibration;
-  float wetCalibration;
-  float soilMoistureData[sampleSize];
-  unsigned long timeStampData[sampleSize];
+  float dryCalibration;         //To calibrate the sensor to get minimum value 
+  float wetCalibration;         //To calibrate the sensor to get maximum value
+  float soilMoistureData[sampleSize];             //Stores 10 samples of soil moisture readings
+  unsigned long timeStampData[sampleSize];        //Stores the timestamps of when data was collected
   float timePlaceHolder;
-  float soilPlaceHolder;
+  float soilPlaceHolder;                          //Temporary location for holding data before storing it permanently. 
   bool valveStatus;
+  //float waterLevelRead;//
 };
 
-Zone zone1;
+Zone zone1;                     //Zone object
 
 void recordSoilData(){          //This function will record data from sensors.
     
-    if(millis() - timeCount >= soil_TimeStamp){
+    //This condition checks if the time difference between when it started and when it last recorded data is 30m
+    if(millis() - timeCount >= soil_TimeStamp){     
       timeCount = millis();
        zone1.soilPlaceHolder = analogRead(sensorOutPut);
-      zone1.timePlaceHolder = timeCount;      
+      zone1.timePlaceHolder = timeCount;   
     }  
 }
 
@@ -55,6 +57,8 @@ void convertData(){          //This function converts raw data into percentages 
     zone1.timeStampData[arrIndx] = time_placeHolder / 60000;       //Converts the millis time into minutes.
 
     arrIndx++; 
+
+    
   
 }
 
@@ -62,7 +66,7 @@ float getDryingRate() {          //This function will determine the drying rates
 
   float soil_dryRate = 0.0;
 
-  soil_dryRate = (zone1.soilMoistureData[sampleSize-1] - zone1.soilMoistureData[0]) / zone1.timeStampData[sampleSize-1] - zone1.timeStampData[0];
+  soil_dryRate = (zone1.soilMoistureData[sampleSize-1] - zone1.soilMoistureData[0]) / (zone1.timeStampData[sampleSize-1] - zone1.timeStampData[0]);
 
   return soil_dryRate;
 }
@@ -70,11 +74,19 @@ float getDryingRate() {          //This function will determine the drying rates
 double getThreshold(){
   
   double soilThreshold = 0;
-  double base_thresholds = 37;
+  double loamyB1_thresholds = 37;
+  double clayB1_thresholds = 47;
+  double SandyB1_thresholds = 27;
   float dryRate = getDryingRate();
 
-  if(zone1.soilTp == CLAY){
-    soilThreshold = base_thresholds + tempPrec + dryRate - humidPerc;
+  if(zone1.soilTyp == CLAY){
+    soilThreshold = clayB1_thresholds + tempPrec + dryRate - humidPerc;
+  } 
+  else if(zone1.soilTyp == SANDY){
+    soilThreshold = SandyB1_thresholds + tempPrec + dryRate - humidPerc;
+  }
+  else if(zone1.soilTyp == LOAMY){
+    soilThreshold = loamyB1_thresholds + tempPrec + dryRate - humidPerc;
   }
 
   return soilThreshold;
@@ -83,9 +95,11 @@ double getThreshold(){
 
 void detIrrigation(){
 
-double threshold = getThreshold();            //  This call the calculated threshold.
-//double weatherData;                           //This will call calculated rain prob.
+  double threshold = getThreshold();            //  This call the calculated threshold.
+  double weatherData getRainProb();             //  This will call calculated rain prob.
+  double waterLvl = getwATER();
 
+  if(soilMoiature < threshold && weatherData < 60 && )
 
 }
 
@@ -94,7 +108,8 @@ void setup() {
 
 }
 
-void loop() {
+
+ void loop() {
   // put your main code here, to run repeatedly:
 
 }

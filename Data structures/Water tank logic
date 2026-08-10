@@ -69,7 +69,7 @@ void recordTankData()
 
     digitalWrite(triggerPin, LOW);
 
-    waterZn.echoTime = pulseIn(echoPin, HIGH);
+    waterZn.echoTime = pulseIn(echoPin, HIGH, 30000);
 }
 
 // Convert echo time into distance
@@ -88,7 +88,9 @@ void calculateWaterLevel(){
 
     if(waterZn.waterHeight < 0)
         waterZn.waterHeight = 0;
-
+    else if(waterZn.waterHeight > 100)
+        waterZn.waterHeight = 100;
+    
     waterZn.waterPercentage =
         (waterZn.waterHeight / currentTank.height) * 100.0;
 }

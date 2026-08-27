@@ -5,7 +5,7 @@
 //Global variables
 const char* ssid = "";       //Find better solution
 const char* password = "";      //Find better solution
-const int DAILY_DATA = 24;
+const int DAILY_DATA = 48;
 unsigned long weatherTimeStamp = 0;
 const unsigned long WEATHER_INTERVAL = 3600000;
 

@@ -5,58 +5,67 @@
 //Global variables
 const char* ssid = "";       //Find better solution
 const char* password = "";      //Find better solution
+const int DAILY_DATA = 24;
+unsigned long weatherTimeStamp = 0;
+const unsigned long WEATHER_INTERVAL = 3600000;
 
 struct weather_API{
 
-  String description;
+  String time_Stamp;
   float API_temp;
   float API_humidity;
   float rain_prob;
 
 };
 
-String API_URL = "https://pro.openweathermap.org/data/2.5/forecast/hourly?";
-String API_key = "3ca8b05fac70db4002e6b393c9dbb0eb";                  //Just an API placeholder and NOT for production 
-
+//Replace this in future with dashboard data
 float LAT = -29.35080374459709;
 float LON = 27.601807742259524;
-weather_API data;
+
+//URL for getting weather data
+String API_URL = "https://api.open-meteo.com/v1/forecast?
+                  latitude="+LAT+"&longitude="+LON+"&hourly=temperature_2m,
+                  relative_humidity_2m,precipitation_probability,
+                  precipitation&forecast_days=2&timezone=auto";
 
 
-void setup() {
-  
-  Serial.begin(115200);
+weather_API data[DAILY_DATA];
+
+void connect_WiFi(){
 
   WiFi.begin(ssid, password);
+  unsigned long startAttempt = millis();
 
-  while(WiFi.status() != WL_CONNECTED){
-    delay(500);
-    Serial.println(".");
+  while(WiFi.status() != WL_CONNECTED && millis() - startAttempt < 5000){ //Time difference = 5s
+        Serial.println("Reconnecting...");
+        delay(500);
+        Serial.print(".");
+        
+    }
+
+  if(WiFi.status() == WL_CONNECTED){
+   Serial.println("WiFi connected.");
   }
-
-  Serial.println("WiFi connected.");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
 
 }
 
 void getWeatherData(){
 
-//This condition checks if the system has connected to the internet
+ //This condition checks if the system has connected to the internet
  if(WiFi.status() == WL_CONNECTED){       
-  
    HTTPClient httpObj;          //This object will enable the system to make HTTP requests
+  
+   //HTTP CONNECTION TIMEOUT
+    httpObj.setConnectTimeout(5000);  // 5 sec to establish connection
+    httpObj.setTimeout(10000);         // 10 sec waiting for data
+   String requestURL = API_URL;
 
-  String requestURL = API_URL + "lat=" + String(LAT, 6) + "&lon=" + String(LON, 6) + "&units=metric" + "&appid=" + API_key;
+   httpObj.begin(requestURL);       //Sends an HTTP request with all data included e.g (LAT, LON, API_KEY).
 
-  httpObj.begin(requestURL);       //Sends an HTTP request with all data included e.g (LAT, LON, API_KEY).
-
-
-
-   int httpCode = httpObj.GET();        //Creates a connection to send the HTTP request
-
-    //Confrims if data was recieved
-   if(httpCode > 0){
+    int httpCode = httpObj.GET();        //Creates a connection to send the HTTP request
+    
+    //Confirms if data was recieved
+   if(httpCode == HTTP_CODE_OK){
     String Json_Data = httpObj.getString();      //Read data 
     Serial.println(Json_Data);
 
@@ -67,20 +76,27 @@ void getWeatherData(){
     if(error){
     Serial.print("JSON error: ");
     Serial.println(error.c_str());
+    httpObj.end();
     return;
     }
 
     JsonObject jsonOb = doc.as<JsonObject>();
 
     //Display data
-    data.description = jsonOb["list"][0]["weather"][0]["description"].as<String>();;
-    data.API_temp = jsonOb["list"][0]["main"]["temp"].as<float>();
-    data.API_humidity = jsonOb["list"][0]["main"]["humidity"].as<float>();
-    data.rain_prob = jsonOb["list"][0]["pop"].as<float>() * 100.0;
+   for (int a = 0; a < DAILY_DATA; a++) {
+    data[a].time_Stamp = jsonOb["hourly"]["time"][a].as<String>();
+
+    data[a].API_temp = jsonOb["hourly"]["temperature_2m"][a].as<float>();
+
+    data[a].API_humidity = jsonOb["hourly"]["relative_humidity_2m"][a].as<float>();
+
+    data[a].rain_prob = jsonOb["hourly"]["precipitation_probability"][a].as<float>();
+   }
     
    } else{
     Serial.println("Error: Cannot retrieve data!");
-  }
+    Serial.println(httpCode);
+   }
 
    httpObj.end();
   }
@@ -88,10 +104,20 @@ void getWeatherData(){
 
 }
 
-void loop() {
+void setup(){
+  
+  Serial.begin(115200);
+   connect_WiFi();
+}
 
-getWeatherData();
-delay(3600000);
+void loop(){
+
+ if (millis() - weatherTimeStamp >= WEATHER_INTERVAL) {
+
+        weatherTimeStamp = millis();
+
+        getWeatherData();
+    }
 
 }
 

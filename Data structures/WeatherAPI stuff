@@ -100,12 +100,9 @@ void getWeatherData(){
 
    httpObj.end();
   }
-
-
 }
 
 void setup(){
-  
   Serial.begin(115200);
    connect_WiFi();
 }
@@ -118,6 +115,5 @@ void loop(){
 
         getWeatherData();
     }
-
 }
 

@@ -1,0 +1,599 @@
+#include <Arduino.h>
+// FLOW SENSOR
+#define FLOW_SENSOR_PIN 27
+
+// This MUST come from your flow sensor calibration.
+// Example only: 450 pulses = 1 litre.
+const float PULSES_PER_LITRE = 450.0;
+
+volatile unsigned long flowPulses = 0;
+
+
+// Interrupt function
+void IRAM_ATTR countFlowPulse(){
+    flowPulses++;       //Represents number of pulses detected/triggered
+}
+
+// IRRIGATION SETTINGS
+const int IRRIGATION_HISTORY_SIZE = 10;
+
+const unsigned long FLOW_RATE_WINDOW = 5000;       // 5 seconds
+const unsigned long SETTLING_TIME = 5UL * 60UL * 1000UL;
+
+// Minimum water that must remain in tank
+const float TANK_RESERVE_PERCENT = 30.0;
+
+// How far into the future we predict water demand
+const float DEMAND_HORIZON_HOURS = 24.0;
+
+// IRRIGATION STATES
+enum IrrigationState{
+    IDLE,
+    WATERING,
+    SETTLING
+};
+
+IrrigationState irrigationState = IDLE;
+
+// IRRIGATION PROFILE
+struct Irrigation_Profile{
+    int zoneID;
+    SoilType irr_szTyp;
+
+    // Current irrigation cycle
+    float irr_PreWatering;
+    float irr_PostWatering;
+    float irr_nxtmoisture;    // Moisture recorded when NEXT irrigation starts
+
+    // Actual water measured by flow sensor
+    float irr_waterSpent;
+
+    // Historical learning
+    float litresPerMoisture[IRRIGATION_HISTORY_SIZE];
+    float dryingRates[IRRIGATION_HISTORY_SIZE];
+    unsigned long irrigationDurations[IRRIGATION_HISTORY_SIZE];
+    float waterUsedHistory[IRRIGATION_HISTORY_SIZE];
+
+    // Learned averages
+    float averageLitresPerPercentage;
+    float irr_AvgdryRate;
+
+    float averageWaterPerCycle;
+    float averageCycleDuration;
+    int irrigationCycles;
+
+    // Weather associated with cycle
+    float irr_MinTemp;
+    float irr_MaxTemp;
+    float irr_Humid;
+    float irr_rainProb;
+};
+
+
+Irrigation_Profile irrProfile;
+
+
+// Water budget stuff
+struct WaterBudget{
+    float tankCapacity;
+    float currentWater;
+    float reservedWater;
+    float usableWater;
+    float predictedDemand;
+};
+
+WaterBudget budget;
+
+// Variables for everyone :)
+  Zone zone1;
+
+  unsigned long irrigationStartTime = 0;
+  unsigned long settlingStartTime = 0;
+
+  unsigned long flowWindowStart = 0;
+  unsigned long flowWindowPulses = 0;
+
+  float currentFlowRate = 0.0;
+  float requiredWater = 0.0;
+
+
+// Stuff from flow sensor
+float getWaterVolume(){
+    noInterrupts();        //This pauses/holds interrupts to count pulses
+    unsigned long pulses = flowPulses;
+    interrupts();
+    float convPulse = 0;
+
+    convPulse = pulses / PULSES_PER_LITRE;      //Converts pulses into litres
+    return convPulse;
+}
+
+// Calculate current flow rate
+float getFlowRate(){
+    
+    unsigned long now = millis();
+    unsigned long pulseDifference = 0;
+    float elapsedSeconds = 0;
+    float pulsesPerSecond = 0;
+    float litresPerSecond = 0;
+
+    if (now - flowWindowStart < FLOW_RATE_WINDOW){        //Determines the time difference between start time and recording time
+        return currentFlowRate;
+    }
+
+    noInterrupts();
+
+    unsigned long currentPulses = flowPulses;
+
+    interrupts();
+    
+    pulseDifference = currentPulses - flowWindowPulses;
+
+    elapsedSeconds = (now - flowWindowStart) / 1000.0;
+
+    if (elapsedSeconds > 0)
+    {
+        pulsesPerSecond = pulseDifference / elapsedSeconds;
+
+        litresPerSecond = pulsesPerSecond / PULSES_PER_LITRE;
+
+        currentFlowRate = litresPerSecond * 60.0;
+    }
+
+    flowWindowPulses = currentPulses;
+    flowWindowStart = now;
+
+    return currentFlowRate;
+}
+
+
+// START IRRIGATION
+void startIrrigation(int zoneID){
+    irrigationState = WATERING;
+    noInterrupts();
+    flowPulses = 0;         // Reset flow sensor
+    interrupts();
+
+    flowWindowPulses = 0;
+    flowWindowStart = millis();
+    currentFlowRate = 0;
+
+   
+    // SIDE NOTE: Capture NEXT moisture for previous cycle
+    if (irrProfile.irrigationCycles > 0){
+        irrProfile.irr_nxtmoisture = zone1.currentSoilMoisture;
+
+        // Now we can calculate the previous cycle
+        calculatePreviousCycle();
+    }
+
+    // Current cycle begins
+    irrProfile.zoneID = zoneID;
+    irrProfile.irr_PreWatering = zone1.currentSoilMoisture;
+
+    irrigationStartTime = millis();
+
+    Serial.println("================================");
+    Serial.println("IRRIGATION STARTED");
+
+    Serial.print("Zone: ");
+    Serial.println(zoneID);
+
+    Serial.print("Moisture before: ");
+    Serial.println(irrProfile.irr_PreWatering);
+}
+
+// CALCULATE PREVIOUS IRRIGATION CYCLE
+void calculatePreviousCycle(){
+    int index = irrProfile.irrigationCycles;
+    float moistureLoss = 0;
+    float moistureIncrease = 0;
+    float litresPerPercentage = 0;
+    float hoursPassed = 0;
+    float dryingRate = 0;
+
+    if (index >= IRRIGATION_HISTORY_SIZE){
+        index = IRRIGATION_HISTORY_SIZE - 1;
+    }
+
+    // soil moisture increase
+    moistureIncrease = irrProfile.irr_PostWatering - irrProfile.irr_PreWatering;
+
+    // Litres per percentage
+    if (moistureIncrease > 0 && irrProfile.irr_waterSpent > 0){
+        litresPerPercentage = irrProfile.irr_waterSpent / moistureIncrease;
+
+        irrProfile.litresPerMoisture[index] = litresPerPercentage;
+
+        Serial.print("Litres per moisture %: ");
+        Serial.println(litresPerPercentage);
+    }
+
+    // GET drying rate
+    moistureLoss = irrProfile.irr_PostWatering - irrProfile.irr_nxtmoisture;
+
+
+    /* 
+    Time between post irrigation next irrigation
+
+     For now this uses the time between irrigation cycles.
+      We'll improve this with a timestamp in the next version.
+    */
+
+    hoursPassed =  DEMAND_HORIZON_HOURS;
+
+    if (moistureLoss > 0){
+        dryingRate = moistureLoss / hoursPassed;
+
+        irrProfile.dryingRates[index] = dryingRate;
+
+        Serial.print("Drying rate: ");
+        Serial.println(dryingRate);
+    }
+
+    // Get water used
+    irrProfile.waterUsedHistory[index] = irrProfile.irr_waterSpent;
+
+
+    // Store irrigation duration
+    irrProfile.irrigationDurations[index] = millis() - irrigationStartTime;
+    updateZoneAverages();
+}
+
+// Update old data
+void updateZoneAverages(){
+    int count = irrProfile.irrigationCycles;
+
+    if (count <= 0)
+        return;
+
+    if (count > IRRIGATION_HISTORY_SIZE)
+        count = IRRIGATION_HISTORY_SIZE;
+
+
+    float litreTotal = 0;
+    float dryingTotal = 0;
+
+    float waterTotal = 0;
+    float durationTotal = 0;
+
+    int litreCount = 0;
+    int dryingCount = 0;
+
+
+    for (int i = 0; i < count; i++){
+        // Litres 
+        if (irrProfile.litresPerMoisture[i] > 0){
+            litreTotal += irrProfile.litresPerMoisture[i];
+
+            litreCount++;
+        }
+
+        // Drying rate
+        if (irrProfile.dryingRates[i] > 0){
+            dryingTotal += irrProfile.dryingRates[i];
+
+            dryingCount++;
+        }
+
+        // Water stuff
+        waterTotal += irrProfile.waterUsedHistory[i];
+
+
+        // Duration stuff
+        durationTotal += irrProfile.irrigationDurations[i];
+    }
+
+
+    if (litreCount > 0){
+        irrProfile.averageLitresPerPercentage = litreTotal / litreCount;
+    }
+
+
+    if (dryingCount > 0){
+        irrProfile.irr_AvgdryRate = dryingTotal / dryingCount;
+    }
+
+
+    irrProfile.averageWaterPerCycle = waterTotal / count;
+
+
+    irrProfile.averageCycleDuration = durationTotal / count;
+}
+
+// Soil moisture deficit stuff here:
+float getMoistureDeficit(){
+    float targetMoisture = 0;
+    targetMoisture = getThreshold(zone1);
+    float moistureDeficit = 0;
+
+    moistureDeficit = targetMoisture - zone1.currentSoilMoisture;
+
+
+    // Prevent negative deficit
+    if (moistureDeficit < 0)
+    {
+        moistureDeficit = 0;
+    }
+
+
+    return moistureDeficit;
+}
+
+// Get water needed
+float getRequiredWater(){
+  
+    float moistureDeficit = 0;
+    float waterNeeded = 0;
+
+     moistureDeficit = getMoistureDeficit();
+
+
+    // We need old data to get prdicted new stuff
+    if(irrProfile.averageLitresPerPercentage <= 0)
+    {
+        return 0;
+    }
+
+
+    waterNeeded = moistureDeficit * irrProfile.averageLitresPerPercentage;
+
+
+    return waterNeeded;
+}
+
+// Get irrigation duration
+float irrigationDuration(){
+   float waterNeeded = 0;
+   float flowRate = 0;
+   float durationMinutes = 0;
+    
+    waterNeeded = getRequiredWater();
+    flowRate = getFlowRate();
+
+
+    if (waterNeeded <= 0)
+        return 0;
+
+
+    if (flowRate <= 0)
+        return 0;
+
+
+    durationMinutes = waterNeeded / flowRate;
+
+
+    return durationMinutes;
+}
+
+// Water budget stuff
+void setBudget(){
+
+  budget.tankCapacity = waterZn.volume;           // Tank capacity
+
+  budget.currentWater = (waterZn.waterPercentage / 100.0) *  budget.tankCapacity;     // Current water
+ 
+
+    budget.reservedWater = (TANK_RESERVE_PERCENT / 100.0) * budget.tankCapacity;    // Reserve 30% of tank capacity
+
+    budget.usableWater = budget.currentWater - budget.reservedWater;             // Usable water
+
+
+    if(budget.usableWater < 0){
+        budget.usableWater = 0;
+    }
+}
+
+// PREDICT WATER DEMAND
+float predictWaterDemand(){
+
+    float currentDeficit = getMoistureDeficit();    // Current moisture deficit
+    float expectedMoistureLoss = 0;
+    float totalMoistureRequirement = 0;
+    float predictedDemand = 0;
+
+    // --------------------------------------------------------
+    // Expected moisture loss over the next 24 hours
+    // based on historical drying rate
+    // --------------------------------------------------------
+
+    expectedMoistureLoss = irrProfile.irr_AvgdryRate * DEMAND_HORIZON_HOURS;
+
+
+    // --------------------------------------------------------
+    // Total expected moisture requirement
+    // --------------------------------------------------------
+
+    totalMoistureRequirement = currentDeficit + expectedMoistureLoss;
+
+    // --------------------------------------------------------
+    // Convert moisture requirement to litres
+    // using historical litres/%
+    // --------------------------------------------------------
+
+    if (irrProfile.averageLitresPerPercentage <= 0){
+        return 0;
+    }
+
+    predictedDemand = totalMoistureRequirement * irrProfile.averageLitresPerPercentage;
+
+    return predictedDemand;
+}
+
+
+// Checks for available water
+bool enoughWater(float required){
+    setBudget();
+    bool test = false;
+
+    if(budget.usableWater >= required)
+    test = true;
+
+    return test;
+}
+
+// WeatherAPI data usage
+void setWeatherProfile(){
+    // Assume 'data' contains your weather API data
+    // and 'numWeatherRecords' is the number of records.
+
+    float minTemp = 0;
+    float maxTemp = 0;
+    float maxHumidity = 0;
+    float maxRainProbability = 0;
+
+    //Good enough to find min and max values
+    for (int i = 0; i < numWeatherRecords; i++)
+    {
+        if(data[i].API_temp < minTemp){
+            minTemp = data[i].API_temp;
+        }
+
+        if(data[i].API_temp > maxTemp){
+            maxTemp = data[i].API_temp;
+        }
+
+
+        if(data[i].API_humidity > maxHumidity){
+            maxHumidity = data[i].API_humidity;
+        }
+
+        if(data[i].rain_prob > maxRainProbability){
+            maxRainProbability = data[i].rain_prob;
+        }
+    }
+
+
+    irrProfile.irr_MinTemp = minTemp;
+    irrProfile.irr_MaxTemp = maxTemp;
+    irrProfile.irr_Humid = maxHumidity;
+    irrProfile.irr_rainProb = maxRainProbability;
+}
+
+
+//Stop irrigation stuff
+void stopIrrigation(){
+    // Replace with your actual valve control.
+    // digitalWrite(zone1ValvePin, LOW);
+
+    irrigationState = SETTLING;
+
+    settlingStartTime = millis();
+
+    // Capture actual water used
+
+    irrProfile.irr_waterSpent = getWaterVolume();
+
+
+    // Capture irrigation duration
+
+    unsigned long duration = millis() - irrigationStartTime;
+
+
+    Serial.println("================================");
+    Serial.println("IRRIGATION FINISHED");
+
+    Serial.print("Water used: ");
+    Serial.print(irrProfile.irr_waterSpent);
+    Serial.println(" L");
+
+    Serial.print("Duration: ");
+    Serial.print(duration / 60000.0);
+    Serial.println(" minutes");
+
+    Serial.println("Entering settling period...");
+}
+
+//Irrigation stuff
+void updateIrrigation(){
+    if(irrigationState != WATERING)
+        return;
+
+    getFlowRate();                                   // Update flow rate
+    float waterDelivered = getWaterVolume();        // Actual water delivered
+
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // PRIMARY STOPPING CONDITION:
+    //
+    // Stop when actual water reaches required water.
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    if(waterDelivered >= requiredWater){
+        stopIrrigation();
+        return;
+    }
+
+
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    // Safety condition: COME BACK TO THIS
+    //
+    // If sensor says no water is flowing,
+    // something could be wrong.
+    // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    if(millis() - irrigationStartTime > 60UL * 60UL * 1000UL){
+        Serial.println("SAFETY TIMEOUT!");
+
+        stopIrrigation();
+    }
+}
+
+//Settling stuff
+void updateSettling(){
+    if(irrigationState != SETTLING)
+        return;
+
+    if(millis() - settlingStartTime >= SETTLING_TIME){
+      irrProfile.irr_PostWatering = zone1.currentSoilMoisture;          // Take post-irrigation moisture reading
+
+        Serial.println("================================");
+        Serial.println("SETTLING COMPLETE");
+
+        Serial.print("Post irrigation moisture: ");
+        Serial.println(irrProfile.irr_PostWatering);
+
+        irrProfile.irrigationCycles++;            // One irrigation cycle completed
+
+        if(irrProfile.irrigationCycles > IRRIGATION_HISTORY_SIZE){
+            irrProfile.irrigationCycles = IRRIGATION_HISTORY_SIZE;
+        }
+
+        irrigationState = IDLE;
+    }
+}
+
+// Setup stuff >:|
+void setup(){
+    Serial.begin(115200);
+    pinMode( FLOW_SENSOR_PIN, INPUT_PULLUP);
+    attachInterrupt( digitalPinToInterrupt(FLOW_SENSOR_PIN), countFlowPulse, RISING);
+
+    // Initialise profile
+    irrProfile.zoneID = 1;
+    irrProfile.irrigationCycles = 0;
+    irrProfile.averageLitresPerPercentage = 0;
+    irrProfile.irr_AvgdryRate = 0;
+    irrProfile.averageWaterPerCycle = 0;
+    irrProfile.averageCycleDuration = 0;
+}
+
+// Main loop stuff
+void loop(){
+    // Update irrigation if active
+    if(irrigationState == WATERING){
+        updateIrrigation();
+    }
+
+    if(irrigationState == SETTLING){
+      updateSettling();
+    }
+
+    // Water budget
+    setBudget();
+    
+    if(irrigationState == IDLE){
+        float predictedDemand = predictWaterDemand();
+        budget.predictedDemand = predictedDemand;
+    }
+}

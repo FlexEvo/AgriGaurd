@@ -2,118 +2,85 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
-//Global variables
-const char* ssid = "";       //Find better solution
-const char* password = "";      //Find better solution
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Weather variables ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 const int DAILY_DATA = 48;
-unsigned long weatherTimeStamp = 0;
-const unsigned long WEATHER_INTERVAL = 3600000;
+const unsigned long WEATHER_INTERVAL = 60UL * 60UL * 1000UL;  // 1 hour
+const float RAIN_THRESHOLD = 60.0;
+const char* WIFI_SSID = "YOUR_WIFI_SSID";
+const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+const float LAT = -29.35080374459709;
+const float LON = 27.601807742259524;
 
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Weather structure ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 struct weather_API{
-
   String time_Stamp;
   float API_temp;
   float API_humidity;
   float rain_prob;
-
 };
 
-//Replace this in future with dashboard data
-float LAT = -29.35080374459709;
-float LON = 27.601807742259524;
-
-//URL for getting weather data
-String API_URL = "https://api.open-meteo.com/v1/forecast?
-                  latitude="+LAT+"&longitude="+LON+"&hourly=temperature_2m,
-                  relative_humidity_2m,precipitation_probability,
-                  precipitation&forecast_days=2&timezone=auto";
 
 
-weather_API data[DAILY_DATA];
-
-void connect_WiFi(){
-
-  WiFi.begin(ssid, password);
-  unsigned long startAttempt = millis();
-
-  while(WiFi.status() != WL_CONNECTED && millis() - startAttempt < 5000){ //Time difference = 5s
-        Serial.println("Reconnecting...");
-        delay(500);
+unsigned long startAttempt = millis();
+    
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttempt < 15000) {
+        delay(100);
         Serial.print(".");
+        yield();
+    }
+    Serial.println();
+    
+    systemState.wifiConnected = (WiFi.status() == WL_CONNECTED);
+    if (systemState.wifiConnected) {
+        Serial.println("WiFi connected. IP: " + WiFi.localIP().toString());
+    } else {
+        Serial.println("WiFi connection failed.");
+    }
+}
+
+String buildWeatherURL() {
+    return "https://api.open-meteo.com/v1/forecast?latitude=" + String(LAT) + "&longitude=" + String(LON) 
+           + "&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,precipitation&forecast_days=2&timezone=auto";
+}
+
+void fetchWeatherData() {
+    if (!systemState.wifiConnected || systemState.weatherAvailable)
+     return;
+    
+    HTTPClient http;
+    String url = buildWeatherURL();
+    Serial.println("Fetching weather data...");
+    
+    http.setConnectTimeout(10000);
+    http.setTimeout(15000);
+    http.begin(url);
+    int httpCode = http.GET();
+    
+    if (httpCode == HTTP_CODE_OK) {
+        String jsonData = http.getString();
+        weatherDoc.clear();
+        DeserializationError error = deserializeJson(weatherDoc, jsonData);
         
+        if (!error) {
+            JsonObject jsonOb = weatherDoc.as<JsonObject>();
+            for (int x = 0; x < DAILY_DATA; x++) {
+                weather[x].temperature = jsonOb["hourly"]["temperature_2m"][x].as<float>();
+                weather[x].humidity = jsonOb["hourly"]["relative_humidity_2m"][x].as<float>();
+                weather[x].rainProbability = jsonOb["hourly"]["precipitation_probability"][x].as<float>();
+            }
+            systemState.weatherAvailable = true;
+            Serial.println("Weather data updated.");
+        }
+        jsonData = String();
+        weatherDoc.clear();
+    } else {
+        Serial.print("Weather HTTP error: ");
+        Serial.println(httpCode);
     }
-
-  if(WiFi.status() == WL_CONNECTED){
-   Serial.println("WiFi connected.");
-  }
-
+    http.end();
 }
 
-void getWeatherData(){
-
- //This condition checks if the system has connected to the internet
- if(WiFi.status() == WL_CONNECTED){       
-   HTTPClient httpObj;          //This object will enable the system to make HTTP requests
-  
-   //HTTP CONNECTION TIMEOUT
-    httpObj.setConnectTimeout(5000);  // 5 sec to establish connection
-    httpObj.setTimeout(10000);         // 10 sec waiting for data
-   String requestURL = API_URL;
-
-   httpObj.begin(requestURL);       //Sends an HTTP request with all data included e.g (LAT, LON, API_KEY).
-
-    int httpCode = httpObj.GET();        //Creates a connection to send the HTTP request
-    
-    //Confirms if data was recieved
-   if(httpCode == HTTP_CODE_OK){
-    String Json_Data = httpObj.getString();      //Read data 
-    Serial.println(Json_Data);
-
-    //Retrieves weather data as json
-    DynamicJsonDocument doc(8192);            //Memory allocated to store Json data
-    DeserializationError error = deserializeJson(doc, Json_Data);
-
-    if(error){
-    Serial.print("JSON error: ");
-    Serial.println(error.c_str());
-    httpObj.end();
-    return;
-    }
-
-    JsonObject jsonOb = doc.as<JsonObject>();
-
-    //Display data
-   for (int a = 0; a < DAILY_DATA; a++) {
-    data[a].time_Stamp = jsonOb["hourly"]["time"][a].as<String>();
-
-    data[a].API_temp = jsonOb["hourly"]["temperature_2m"][a].as<float>();
-
-    data[a].API_humidity = jsonOb["hourly"]["relative_humidity_2m"][a].as<float>();
-
-    data[a].rain_prob = jsonOb["hourly"]["precipitation_probability"][a].as<float>();
-   }
-    
-   } else{
-    Serial.println("Error: Cannot retrieve data!");
-    Serial.println(httpCode);
-   }
-
-   httpObj.end();
-  }
+WeatherData getCurrentWeather() {
+    return weather[currentWeatherIndex];
 }
-
-void setup(){
-  Serial.begin(115200);
-   connect_WiFi();
-}
-
-void loop(){
-
- if (millis() - weatherTimeStamp >= WEATHER_INTERVAL) {
-
-        weatherTimeStamp = millis();
-
-        getWeatherData();
-    }
-}
-

@@ -1,0 +1,92 @@
+// EMERGENCY STOP
+#define E_STOP_PIN 19
+#define RESET_BUTTON_PIN 13
+
+// SYSTEM ON/OFF SWITCH
+#define SYSTEM_POWER_PIN 14  // GPIO for master power switch
+
+enum SystemPowerState { POWER_ON, POWER_OFF };
+
+
+void checkEmergencyStop() {
+    // With INPUT_PULLUP: LOW = pressed, HIGH = not pressed
+    bool isPressed = (digitalRead(E_STOP_PIN) == LOW);
+    
+    if (isPressed && !systemState.emergencyActive) {
+        systemState.emergencyActive = true;
+        systemState.irrigationState = EMERGENCY_STOP;
+        
+        // Shut down all valves immediately
+        for (int i = 0; i < 3; i++) {
+            valveOFF(zones[i]);
+        }
+        
+        Serial.println("!!! EMERGENCY STOP ACTIVATED !!!");
+        Serial.println("All valves closed. System halted.");
+    } else if (!isPressed && systemState.emergencyActive) {
+        // Check if reset button is pressed to resume
+        if (digitalRead(RESET_BUTTON_PIN) == LOW) {
+            systemState.emergencyActive = false;
+            systemState.irrigationState = IDLE;
+            Serial.println("Emergency stop reset. System resumed.");
+        }
+    }
+}
+
+void handleEmergencyState() {
+    // Ensure all valves remain off during emergency
+    for (int i = 0; i < 3; i++) {
+        if (zones[i].valveStatus) {
+            valveOFF(zones[i]);
+        }
+    }
+}
+
+// ```````````````````````````````````` SYSTEM ON/OFF ````````````````````````````````````
+
+void initializePowerSwitch() {
+    pinMode(SYSTEM_POWER_PIN, INPUT_PULLUP);
+    systemState.powerState = POWER_OFF;
+}
+
+bool isSystemPoweredOn() {
+    // With PULLUP: LOW = switch ON, HIGH = switch OFF
+    bool switchState = (digitalRead(SYSTEM_POWER_PIN) == LOW);
+    
+    if (switchState && systemState.powerState == POWER_OFF) {
+        systemState.powerState = POWER_ON;
+        Serial.println("System powered ON");
+
+        return true;
+    } 
+    else if (!switchState && systemState.powerState == POWER_ON) {
+        systemState.powerState = POWER_OFF;
+        Serial.println("System powered OFF");
+        performGracefulShutdown();
+        return false;
+    }
+    
+    return (systemState.powerState == POWER_ON);
+}
+
+void performGracefulShutdown() {
+    // Close all valves
+    for (int i = 0; i < 3; i++) {
+        if (zones[i].valveStatus) {
+            valveOFF(zones[i]);
+        }
+    }
+    
+    // Save any critical data before shutdown
+    Serial.println("Performing graceful shutdown...");
+    // Add any data saving routines here
+    
+    // Turn off LCD
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("System OFF");
+    lcd.setCursor(0, 1);
+    lcd.print("Shutting down...");
+    delay(1000);
+    lcd.noBacklight();
+}

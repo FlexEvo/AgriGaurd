@@ -1,0 +1,1304 @@
+#include <Arduino.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+#include <LiquidCrystal_I2C.h>
+
+/*
+============================================================
+                    AGRIGUARD
+             PRODUCTION SMART IRRIGATION SYSTEM
+============================================================
+
+SYSTEM ARCHITECTURE
+------------------------------------------------------------
+1. PIN Configuration
+2. Constants & Settings
+3. Enumerations & Data Structures
+4. System State Variables
+5. SOIL MOISTURE SYSTEM
+   - Reading sensors
+   - Calculating averages
+   - Determining drying rates
+6. WEATHER DATA SYSTEM
+   - WiFi connection
+   - API fetching
+   - Data storage
+7. WATER TANK SYSTEM
+   - Ultrasonic readings
+   - Level calculations
+8. IRRIGATION VALVE SYSTEM
+   - ON/OFF control
+   - Flow monitoring
+9. IRRIGATION PROFILES & WATER BUDGETING
+   - Learning from cycles
+   - Water requirement calculations
+   - Budget management
+10. EMERGENCY STOP SYSTEM
+    - Hardware button monitoring
+    - Emergency state handling
+    - Reset mechanism
+11. SYSTEM ON/OFF SWITCH
+    - Master power control
+    - Graceful shutdown
+12. LCD DISPLAY SYSTEM
+    - Real-time status updates
+    - Message display
+13. SYSTEM SETUP & MAIN LOOP
+============================================================
+*/
+
+// ============================================================
+// 1. PIN CONFIGURATION
+// ============================================================
+
+// Soil sensors
+#define SOIL_SENSOR_1 4
+#define SOIL_SENSOR_2 5
+#define SOIL_SENSOR_3 6
+
+// Water tank ultrasonic sensor
+#define TANK_TRIGGER_PIN 15
+#define TANK_ECHO_PIN    16
+
+// Irrigation valves for 3 zones
+#define ZONE1_VALVE_PIN 47
+#define ZONE2_VALVE_PIN 21
+#define ZONE3_VALVE_PIN 20
+
+// Flow sensor
+#define FLOW_SENSOR_PIN 18
+
+// EMERGENCY STOP
+#define E_STOP_PIN 19
+#define RESET_BUTTON_PIN 13
+
+// SYSTEM ON/OFF SWITCH
+#define SYSTEM_POWER_PIN 14  // GPIO for master power switch
+
+// LCD I2C
+#define LCD_ADDRESS 0x27
+#define LCD_COLUMNS 16
+#define LCD_ROWS 2
+
+// ============================================================
+// 2. CONSTANTS & SETTINGS
+// ============================================================
+
+// ---------------- SOIL ----------------
+const int SAMPLE_SIZE = 10;
+const unsigned long SOIL_RECORD_INTERVAL = 30UL * 60UL * 1000UL;  // 30 minutes
+const float WATER_LEVEL_LIMIT = 30.0;
+
+// ---------------- WEATHER ----------------
+const int DAILY_DATA = 48;
+const unsigned long WEATHER_INTERVAL = 60UL * 60UL * 1000UL;  // 1 hour
+const float RAIN_THRESHOLD = 60.0;
+const char* WIFI_SSID = "YOUR_WIFI_SSID";
+const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+const float LAT = -29.35080374459709;
+const float LON = 27.601807742259524;
+
+// ---------------- TANK ----------------
+const unsigned long TANK_RECORD_INTERVAL = 60UL * 60UL * 1000UL;  // 1 hour
+const float TANK_RESERVE_PERCENT = 30.0;
+
+// ---------------- FLOW SENSOR ----------------
+const float PULSES_PER_LITRE = 450.0;
+const unsigned long FLOW_RATE_WINDOW = 5000UL;
+
+// ---------------- IRRIGATION ----------------
+const int MAX_IRRIGATION_CYCLES = 3;
+const unsigned long SAFETY_TIMEOUT = 60UL * 60UL * 1000UL;  // 1 hour
+const unsigned long SETTLING_TIME = 5UL * 60UL * 1000UL;    // 5 minutes
+
+// ---------------- LEARNING ----------------
+const int IRRIGATION_HISTORY_SIZE = 10;
+const float DEMAND_HORIZON_HOURS = 24.0;
+
+// ---------------- THRESHOLD COEFFICIENTS ----------------
+const float TEMP_COEFFICIENT = 3.97;
+const float HUMIDITY_COEFFICIENT = 5.97;
+const float DRYING_RATE_COEFFICIENT = 7.96;
+
+// ---------------- LCD ----------------
+const unsigned long LCD_UPDATE_INTERVAL = 2000UL;
+
+// ============================================================
+// 3. ENUMERATIONS & DATA STRUCTURES
+// ============================================================
+
+enum SoilType { CLAY, SANDY, LOAMY };
+enum TankModel { JJ1, JJ2, JJ3, JJ4, JJ5, JJ6 };
+enum IrrigationState { IDLE, WATERING, SETTLING, CHECKING, MAX_CYCLES_REACHED, EMERGENCY_STOP };
+enum SystemPowerState { POWER_ON, POWER_OFF };
+
+// ------------------------------------------------------------
+// SOIL ZONE STRUCTURE
+// ------------------------------------------------------------
+
+struct Zone {
+    int zoneID;
+    SoilType soilType;
+    float dryCalibration;
+    float wetCalibration;
+    float soilMoistureData[SAMPLE_SIZE];
+    unsigned long timeStampData[SAMPLE_SIZE];
+    int sampleCount;
+    float currentSoilMoisture;
+    float avgSoilMoisture;
+    float dryingRate;
+    bool valveStatus;
+    int sensorPin;
+    int valvePin;
+    bool isIrrigating;
+    unsigned long lastRecordTime;
+};
+
+// ------------------------------------------------------------
+// WEATHER DATA STRUCTURE
+// ------------------------------------------------------------
+
+struct WeatherData {
+    float temperature;
+    float humidity;
+    float rainProbability;
+};
+
+// ------------------------------------------------------------
+// TANK PROFILE STRUCTURE
+// ------------------------------------------------------------
+
+struct TankProfile {
+    String manufacturer;
+    int volume;
+    float height;
+    float diameter;
+};
+
+// ------------------------------------------------------------
+// CURRENT WATER TANK
+// ------------------------------------------------------------
+
+struct WaterTank {
+    TankModel model;
+    float echoTime;
+    float distance;
+    float waterHeight;
+    float waterPercentage;
+    float volume;
+};
+
+// ------------------------------------------------------------
+// IRRIGATION PROFILE
+// ------------------------------------------------------------
+
+struct IrrigationProfile {
+    int zoneID;
+    float preWateringMoisture;
+    float postWateringMoisture;
+    float nextMoisture;
+    float waterSpent;
+    float litresPerMoisture[IRRIGATION_HISTORY_SIZE];
+    float dryingRates[IRRIGATION_HISTORY_SIZE];
+    unsigned long irrigationDurations[IRRIGATION_HISTORY_SIZE];
+    float waterUsedHistory[IRRIGATION_HISTORY_SIZE];
+    float averageLitresPerPercentage;
+    float averageDryingRate;
+    float averageWaterPerCycle;
+    float averageCycleDuration;
+    int irrigationCycles;
+};
+
+// ------------------------------------------------------------
+// WATER BUDGET
+// ------------------------------------------------------------
+
+struct WaterBudget {
+    float tankCapacity;
+    float currentWater;
+    float reservedWater;
+    float usableWater;
+    float predictedDemand;
+};
+
+// ------------------------------------------------------------
+// SYSTEM STATE
+// ------------------------------------------------------------
+
+struct SystemState {
+    SystemPowerState powerState;
+    IrrigationState irrigationState;
+    bool emergencyActive;
+    bool weatherAvailable;
+    bool wifiConnected;
+    unsigned long uptime;
+};
+
+// ============================================================
+// 4. SYSTEM STATE VARIABLES
+// ============================================================
+
+// Core system components
+Zone zones[3];
+WeatherData weather[DAILY_DATA];
+WaterTank waterTank;
+WaterBudget waterBudget;
+IrrigationProfile irrigationProfile;
+SystemState systemState;
+
+// Tank profiles
+TankProfile tankProfiles[] = {
+    {"JoJo", 2000, 145.0, 142.0},
+    {"JoJo", 5250, 225.5, 182.0},
+    {"JoJo", 5500, 224.0, 190.0},
+    {"JoJo", 10000, 315.0, 220.0},
+    {"JoJo", 15000, 326.0, 260.0},
+    {"JoJo", 20000, 427.0, 260.0}
+};
+
+// Timers
+unsigned long weatherTimer = 0;
+unsigned long tankTimer = 0;
+unsigned long lcdTimer = 0;
+unsigned long lcdMessageTimer = 0;
+
+// Flow sensor variables
+volatile unsigned long flowPulses = 0;
+unsigned long flowWindowPulses = 0;
+unsigned long flowWindowStart = 0;
+float currentFlowRate = 0.0;
+
+// Irrigation variables
+unsigned long irrigationStartTime = 0;
+unsigned long settlingStartTime = 0;
+int irrigationCycles = 0;
+float requiredWater = 0.0;
+int activeZoneIndex = -1;
+int currentWeatherIndex = 0;
+
+// LCD
+LiquidCrystal_I2C lcd(LCD_ADDRESS, LCD_COLUMNS, LCD_ROWS);
+String lcdMessage = "";
+unsigned long lcdMessageStartTime = 0;
+const unsigned long LCD_MESSAGE_DURATION = 3000UL;
+
+// Global JSON document
+StaticJsonDocument<16384> weatherDoc;
+
+// ============================================================
+// 5. SOIL MOISTURE SYSTEM
+// ============================================================
+
+float convertRawSoilToPercentage(Zone &zone, float rawValue) {
+
+    if (zone.dryCalibration == zone.wetCalibration) 
+    return 0;
+
+    float moisture = (zone.dryCalibration - rawValue) / (zone.dryCalibration - zone.wetCalibration) * 100.0;
+    if(moisture > 100)
+    moisture = 100;
+
+    if(moisture < 0)
+    moisture = 0;
+
+    return moisture;
+}
+
+void recordSoilData(Zone &zone) {
+    if (millis() - zone.lastRecordTime < SOIL_RECORD_INTERVAL) 
+    return;
+
+    zone.lastRecordTime = millis();
+    
+    float rawValue = analogRead(zone.sensorPin);
+    float moisture = convertRawSoilToPercentage(zone, rawValue);
+    zone.currentSoilMoisture = moisture;
+    
+    if (zone.sampleCount < SAMPLE_SIZE) {
+        zone.soilMoistureData[zone.sampleCount] = moisture;
+        zone.timeStampData[zone.sampleCount] = millis() / 60000UL;
+        zone.sampleCount++;
+    } else {
+        for (int a = 0; s < SAMPLE_SIZE - 1; a++) {
+            zone.soilMoistureData[a] = zone.soilMoistureData[a + 1];
+            zone.timeStampData[a] = zone.timeStampData[a + 1];
+        }
+        zone.soilMoistureData[SAMPLE_SIZE - 1] = moisture;
+        zone.timeStampData[SAMPLE_SIZE - 1] = millis() / 60000UL;
+    }
+    
+    Serial.print("Soil Sensor Zone ");
+    Serial.print(zone.zoneID);
+    Serial.print(": ");
+    Serial.print(moisture);
+    Serial.println("%");
+}
+
+float getAverageSoilMoisture(Zone &zone) {
+    if (zone.sampleCount == 0) return 0;
+    float total = 0;
+    for (int i = 0; i < zone.sampleCount; i++) {
+        total += zone.soilMoistureData[i];
+    }
+    return total / zone.sampleCount;
+}
+
+float calculateDryingRate(Zone &zone) {
+    if (zone.sampleCount < 2) return 0;
+    int last = zone.sampleCount - 1;
+    float moistureChange = zone.soilMoistureData[0] - zone.soilMoistureData[last];
+    float timeChange = zone.timeStampData[last] - zone.timeStampData[0];
+    if (timeChange <= 0) return 0;
+    zone.dryingRate = abs(moistureChange / timeChange);
+    return zone.dryingRate;
+}
+
+// ============================================================
+// 6. WEATHER DATA SYSTEM
+// ============================================================
+
+void connectWiFi() {
+    if (WiFi.status() == WL_CONNECTED) {
+        systemState.wifiConnected = true;
+        return;
+    }
+    
+    Serial.println("Connecting to WiFi...");
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    unsigned long startAttempt = millis();
+    
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttempt < 15000) {
+        delay(100);
+        Serial.print(".");
+        yield();
+    }
+    Serial.println();
+    
+    systemState.wifiConnected = (WiFi.status() == WL_CONNECTED);
+    if (systemState.wifiConnected) {
+        Serial.println("WiFi connected. IP: " + WiFi.localIP().toString());
+    } else {
+        Serial.println("WiFi connection failed.");
+    }
+}
+
+String buildWeatherURL() {
+    return "https://api.open-meteo.com/v1/forecast?latitude=" + String(LAT) + "&longitude=" + String(LON) 
+           + "&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,precipitation&forecast_days=2&timezone=auto";
+}
+
+void fetchWeatherData() {
+    if (!systemState.wifiConnected || systemState.weatherAvailable)
+     return;
+    
+    HTTPClient http;
+    String url = buildWeatherURL();
+    Serial.println("Fetching weather data...");
+    
+    http.setConnectTimeout(10000);
+    http.setTimeout(15000);
+    http.begin(url);
+    int httpCode = http.GET();
+    
+    if (httpCode == HTTP_CODE_OK) {
+        String jsonData = http.getString();
+        weatherDoc.clear();
+        DeserializationError error = deserializeJson(weatherDoc, jsonData);
+        
+        if (!error) {
+            JsonObject jsonOb = weatherDoc.as<JsonObject>();
+            for (int i = 0; i < DAILY_DATA; i++) {
+                weather[i].temperature = jsonOb["hourly"]["temperature_2m"][i].as<float>();
+                weather[i].humidity = jsonOb["hourly"]["relative_humidity_2m"][i].as<float>();
+                weather[i].rainProbability = jsonOb["hourly"]["precipitation_probability"][i].as<float>();
+            }
+            systemState.weatherAvailable = true;
+            Serial.println("Weather data updated.");
+        }
+        jsonData = String();
+        weatherDoc.clear();
+    } else {
+        Serial.print("Weather HTTP error: ");
+        Serial.println(httpCode);
+    }
+    http.end();
+}
+
+WeatherData getCurrentWeather() {
+    return weather[currentWeatherIndex];
+}
+
+// ============================================================
+// 7. WATER TANK SYSTEM
+// ============================================================
+
+void recordTankData() {
+    digitalWrite(TANK_TRIGGER_PIN, LOW);
+    delayMicroseconds(2);
+    digitalWrite(TANK_TRIGGER_PIN, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TANK_TRIGGER_PIN, LOW);
+    waterTank.echoTime = pulseIn(TANK_ECHO_PIN, HIGH, 30000);
+}
+
+void convertTankDistance() {
+    waterTank.distance = (waterTank.echoTime * 0.0343) / 2.0;
+}
+
+void calculateWaterLevel() {
+    TankProfile currentTank = tankProfiles[waterTank.model];
+    waterTank.waterHeight = currentTank.height - waterTank.distance;
+    waterTank.waterHeight = constrain(waterTank.waterHeight, 0, currentTank.height);
+    waterTank.waterPercentage = (waterTank.waterHeight / currentTank.height) * 100.0;
+    waterTank.waterPercentage = constrain(waterTank.waterPercentage, 0.0, 100.0);
+    waterTank.volume = (waterTank.waterPercentage / 100.0) * currentTank.volume;
+}
+
+void updateTank() {
+    if (millis() - tankTimer < TANK_RECORD_INTERVAL) 
+    return;
+
+    tankTimer = millis();
+    recordTankData();
+    convertTankDistance();
+    calculateWaterLevel();
+    
+    Serial.print("Tank level: ");
+    Serial.print(waterTank.waterPercentage);
+    Serial.println("%");
+}
+
+// ============================================================
+// 8. IRRIGATION VALVE SYSTEM
+// ============================================================
+
+void IRAM_ATTR countFlowPulse() {
+    flowPulses++;
+}
+
+float getWaterVolume() {
+    noInterrupts();
+    unsigned long pulses = flowPulses;
+    interrupts();
+    return pulses / PULSES_PER_LITRE;
+}
+
+float getFlowRate() {
+    unsigned long now = millis();
+    if (now - flowWindowStart < FLOW_RATE_WINDOW) return currentFlowRate;
+    
+    noInterrupts();
+    unsigned long currentPulses = flowPulses;
+    interrupts();
+    
+    unsigned long pulseDifference = currentPulses - flowWindowPulses;
+    float elapsedSeconds = (now - flowWindowStart) / 1000.0;
+    
+    if (elapsedSeconds > 0) {
+        float pulsesPerSecond = pulseDifference / elapsedSeconds;
+        float litresPerSecond = pulsesPerSecond / PULSES_PER_LITRE;
+        currentFlowRate = litresPerSecond * 60.0;
+    }
+    
+    flowWindowPulses = currentPulses;
+    flowWindowStart = now;
+    return currentFlowRate;
+}
+
+void valveON(Zone &zone) {
+    digitalWrite(zone.valvePin, HIGH);
+    zone.valveStatus = true;
+    zone.isIrrigating = true;
+    Serial.print("Zone ");
+    Serial.print(zone.zoneID);
+    Serial.println(" valve ON");
+}
+
+void valveOFF(Zone &zone) {
+    digitalWrite(zone.valvePin, LOW);
+    zone.valveStatus = false;
+    zone.isIrrigating = false;
+    Serial.print("Zone ");
+    Serial.print(zone.zoneID);
+    Serial.println(" valve OFF");
+}
+
+void resetFlowMeasurement() {
+    noInterrupts();
+    flowPulses = 0;
+    interrupts();
+    flowWindowPulses = 0;
+    flowWindowStart = millis();
+    currentFlowRate = 0;
+}
+
+// ============================================================
+// 9. IRRIGATION PROFILES & WATER BUDGETING
+// ============================================================
+
+ float getStartThreshold(Zone &zone) {
+    float baseThreshold = 0;
+    switch (zone.soilType) {
+        case CLAY: baseThreshold = 47; break;
+        case SANDY: baseThreshold = 27; break;
+        case LOAMY: baseThreshold = 40; break;
+    }
+    
+    float tempEffect = 0, humidityEffect = 0;
+    if (systemState.weatherAvailable) {
+        WeatherData current = getCurrentWeather();
+        tempEffect = constrain((current.temperature - 20.0) / 15.0, -1.0, 1.0);
+        humidityEffect = constrain((60.0 - current.humidity) / 35.0, -1.0, 1.0);
+    }
+    
+    float dryingRate = calculateDryingRate(zone);
+    float dryingEffect = constrain((dryingRate - 0.5) / 1.5, -1.0, 1.0);
+    
+    float threshold = baseThreshold + (tempEffect * TEMP_COEFFICIENT) + (humidityEffect * HUMIDITY_COEFFICIENT) + (dryingEffect * DRYING_RATE_COEFFICIENT);
+    return constrain(threshold, 0.0, 100.0);
+}
+
+ float getStopThreshold(Zone &zone) {
+    float baseThreshold = 0;
+    switch (zone.soilType) {
+        case CLAY: baseThreshold = 70; break;
+        case SANDY: baseThreshold = 48; break;
+        case LOAMY: baseThreshold = 56; break;
+    }
+    
+    float tempEffect = 0, humidityEffect = 0;
+    if (systemState.weatherAvailable) {
+        WeatherData current = getCurrentWeather();
+        tempEffect = constrain((current.temperature - 20.0) / 15.0, -1.0, 1.0);
+        humidityEffect = constrain((60.0 - current.humidity) / 35.0, -1.0, 1.0);
+    }
+    
+    float dryingRate = calculateDryingRate(zone);
+    float dryingEffect = constrain((dryingRate - 0.5) / 1.5, -1.0, 1.0);
+    
+    float threshold = baseThreshold + (tempEffect * TEMP_COEFFICIENT) + (humidityEffect * HUMIDITY_COEFFICIENT) + (dryingEffect * DRYING_RATE_COEFFICIENT);
+    return constrain(threshold, 0.0, 100.0);
+}
+
+bool shouldStartIrrigation(Zone &zone) {
+    if (zone.sampleCount < SAMPLE_SIZE) {
+        Serial.println("Waiting for soil history...");
+        return false;
+    }
+    
+    if (systemState.weatherAvailable) {
+        float rain = weather[currentWeatherIndex].rainProbability;
+        if (rain >= RAIN_THRESHOLD) {
+            Serial.println("Rain expected - irrigation postponed.");
+            return false;
+        }
+    }
+    
+    if (waterTank.waterPercentage <= WATER_LEVEL_LIMIT) {
+        Serial.println("Tank below minimum level.");
+        return false;
+    }
+    
+    float threshold = getStartThreshold(zone);
+    float moisture = zone.currentSoilMoisture;
+    
+    Serial.print("Start threshold: ");
+    Serial.print(threshold);
+    Serial.print(" Current moisture: ");
+    Serial.println(moisture);
+    
+    return (moisture < threshold);
+}
+
+float getMoistureDeficit(Zone &zone) {
+    float target = getStopThreshold(zone);
+    float deficit = target - zone.currentSoilMoisture;
+    return (deficit < 0) ? 0 : deficit;
+}
+
+float getRequiredWater(Zone &zone) {
+    float deficit = getMoistureDeficit(zone);
+    if (irrigationProfile.averageLitresPerPercentage <= 0) {
+        return deficit * 2.0;  // Default estimation
+    }
+    return deficit * irrigationProfile.averageLitresPerPercentage;
+}
+
+void updateWaterBudget() {
+    TankProfile currentTank = tankProfiles[waterTank.model];
+    waterBudget.tankCapacity = currentTank.volume;
+    waterBudget.currentWater = waterTank.volume;
+    waterBudget.reservedWater = (TANK_RESERVE_PERCENT / 100.0) * waterBudget.tankCapacity;
+    waterBudget.usableWater = waterBudget.currentWater - waterBudget.reservedWater;
+    waterBudget.usableWater = constrain(waterBudget.usableWater, 0.0, waterBudget.tankCapacity);
+}
+
+bool enoughWater(float required) {
+    updateWaterBudget();
+    return (waterBudget.usableWater >= required);
+}
+
+float predictWaterDemand(Zone &zone) {
+    float currentDeficit = getMoistureDeficit(zone);
+    float expectedLoss = irrigationProfile.averageDryingRate * DEMAND_HORIZON_HOURS;
+    float totalRequirement = currentDeficit + expectedLoss;
+    
+    if (irrigationProfile.averageLitresPerPercentage <= 0) return 0;
+    return totalRequirement * irrigationProfile.averageLitresPerPercentage;
+}
+
+void updateProfileAverages() {
+    int count = irrigationProfile.irrigationCycles;
+    if (count <= 0) return;
+    if (count > IRRIGATION_HISTORY_SIZE) count = IRRIGATION_HISTORY_SIZE;
+    
+    float litresTotal = 0, dryingTotal = 0, waterTotal = 0, durationTotal = 0;
+    int litresCount = 0, dryingCount = 0;
+    
+    for (int i = 0; i < count; i++) {
+        if (irrigationProfile.litresPerMoisture[i] > 0) {
+            litresTotal += irrigationProfile.litresPerMoisture[i];
+            litresCount++;
+        }
+        if (irrigationProfile.dryingRates[i] > 0) {
+            dryingTotal += irrigationProfile.dryingRates[i];
+            dryingCount++;
+        }
+        waterTotal += irrigationProfile.waterUsedHistory[i];
+        durationTotal += irrigationProfile.irrigationDurations[i];
+    }
+    
+    if (litresCount > 0) irrigationProfile.averageLitresPerPercentage = litresTotal / litresCount;
+    if (dryingCount > 0) irrigationProfile.averageDryingRate = dryingTotal / dryingCount;
+    irrigationProfile.averageWaterPerCycle = waterTotal / count;
+    irrigationProfile.averageCycleDuration = durationTotal / count;
+}
+
+void calculatePreviousCycle() {
+    int index = irrigationProfile.irrigationCycles;
+    if (index >= IRRIGATION_HISTORY_SIZE) index = IRRIGATION_HISTORY_SIZE - 1;
+    
+    float moistureIncrease = irrigationProfile.postWateringMoisture - irrigationProfile.preWateringMoisture;
+    float moistureLoss = irrigationProfile.postWateringMoisture - irrigationProfile.nextMoisture;
+    
+    if (moistureIncrease > 0 && irrigationProfile.waterSpent > 0) {
+        irrigationProfile.litresPerMoisture[index] = irrigationProfile.waterSpent / moistureIncrease;
+    }
+    if (moistureLoss > 0 && DEMAND_HORIZON_HOURS > 0) {
+        irrigationProfile.dryingRates[index] = moistureLoss / DEMAND_HORIZON_HOURS;
+    }
+    
+    irrigationProfile.waterUsedHistory[index] = irrigationProfile.waterSpent;
+    irrigationProfile.irrigationDurations[index] = millis() - irrigationStartTime;
+    updateProfileAverages();
+}
+
+// ============================================================
+// 10. EMERGENCY STOP SYSTEM
+// ============================================================
+
+void checkEmergencyStop() {
+    // With INPUT_PULLUP: LOW = pressed, HIGH = not pressed
+    bool isPressed = (digitalRead(E_STOP_PIN) == LOW);
+    
+    if (isPressed && !systemState.emergencyActive) {
+        systemState.emergencyActive = true;
+        systemState.irrigationState = EMERGENCY_STOP;
+        
+        // Shut down all valves immediately
+        for (int i = 0; i < 3; i++) {
+            valveOFF(zones[i]);
+        }
+        
+        Serial.println("!!! EMERGENCY STOP ACTIVATED !!!");
+        Serial.println("All valves closed. System halted.");
+    } else if (!isPressed && systemState.emergencyActive) {
+        // Check if reset button is pressed to resume
+        if (digitalRead(RESET_BUTTON_PIN) == LOW) {
+            systemState.emergencyActive = false;
+            systemState.irrigationState = IDLE;
+            Serial.println("Emergency stop reset. System resumed.");
+        }
+    }
+}
+
+void handleEmergencyState() {
+    // Ensure all valves remain off during emergency
+    for (int i = 0; i < 3; i++) {
+        if (zones[i].valveStatus) {
+            valveOFF(zones[i]);
+        }
+    }
+}
+
+// ============================================================
+// 11. SYSTEM ON/OFF SWITCH
+// ============================================================
+
+void initializePowerSwitch() {
+    pinMode(SYSTEM_POWER_PIN, INPUT_PULLUP);
+    systemState.powerState = POWER_OFF;
+}
+
+bool isSystemPoweredOn() {
+    // With PULLUP: LOW = switch ON, HIGH = switch OFF
+    bool switchState = (digitalRead(SYSTEM_POWER_PIN) == LOW);
+    
+    if (switchState && systemState.powerState == POWER_OFF) {
+        systemState.powerState = POWER_ON;
+        Serial.println("System powered ON");
+        return true;
+    } else if (!switchState && systemState.powerState == POWER_ON) {
+        systemState.powerState = POWER_OFF;
+        Serial.println("System powered OFF");
+        performGracefulShutdown();
+        return false;
+    }
+    
+    return (systemState.powerState == POWER_ON);
+}
+
+void performGracefulShutdown() {
+    // Close all valves
+    for (int i = 0; i < 3; i++) {
+        if (zones[i].valveStatus) {
+            valveOFF(zones[i]);
+        }
+    }
+    
+    // Save any critical data before shutdown
+    Serial.println("Performing graceful shutdown...");
+    // Add any data saving routines here
+    
+    // Turn off LCD
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("System OFF");
+    lcd.setCursor(0, 1);
+    lcd.print("Shutting down...");
+    delay(1000);
+    lcd.noBacklight();
+}
+
+// ============================================================
+// 12. IRRIGATION CONTROL FUNCTIONS
+// ============================================================
+
+void startIrrigation(Zone &zone) {
+    if (systemState.emergencyActive) {
+        Serial.println("Cannot irrigate - emergency active!");
+        return;
+    }
+    
+    if (waterTank.waterPercentage <= WATER_LEVEL_LIMIT) {
+        Serial.println("Cannot irrigate - tank too low!");
+        return;
+    }
+    
+    resetFlowMeasurement();
+    requiredWater = getRequiredWater(zone);
+    
+    if (requiredWater <= 0 || !enoughWater(requiredWater)) {
+        Serial.println("Insufficient water available.");
+        return;
+    }
+    
+    irrigationProfile.preWateringMoisture = zone.currentSoilMoisture;
+    irrigationStartTime = millis();
+    valveON(zone);
+    systemState.irrigationState = WATERING;
+    activeZoneIndex = zone.zoneID - 1;
+    
+    Serial.print("Irrigation started on Zone ");
+    Serial.print(zone.zoneID);
+    Serial.print(" - Required: ");
+    Serial.print(requiredWater);
+    Serial.println("L");
+}
+
+void stopIrrigation(Zone &zone) {
+    valveOFF(zone);
+    irrigationProfile.waterSpent = getWaterVolume();
+    unsigned long duration = millis() - irrigationStartTime;
+    
+    Serial.print("Irrigation stopped on Zone ");
+    Serial.print(zone.zoneID);
+    Serial.print(" - Used: ");
+    Serial.print(irrigationProfile.waterSpent);
+    Serial.print("L in ");
+    Serial.print(duration / 60000.0);
+    Serial.println(" minutes");
+    
+    settlingStartTime = millis();
+    systemState.irrigationState = SETTLING;
+}
+
+void updateWatering(Zone &zone) {
+    if (systemState.emergencyActive) return;
+    
+    getFlowRate();
+    float waterDelivered = getWaterVolume();
+    
+    if (waterTank.waterPercentage <= WATER_LEVEL_LIMIT) {
+        Serial.println("Tank too low - stopping irrigation!");
+        stopIrrigation(zone);
+        return;
+    }
+    
+    if (waterDelivered >= requiredWater) {
+        stopIrrigation(zone);
+        return;
+    }
+    
+    if (millis() - irrigationStartTime > SAFETY_TIMEOUT) {
+        Serial.println("Safety timeout - stopping irrigation!");
+        stopIrrigation(zone);
+        return;
+    }
+}
+
+void updateSettling(Zone &zone) {
+    if (millis() - settlingStartTime < SETTLING_TIME) return;
+    
+    Serial.println("Settling period complete.");
+    
+    // Take post-watering reading
+    float rawValue = analogRead(zone.sensorPin);
+    float newMoisture = convertRawSoilToPercentage(zone, rawValue);
+    zone.currentSoilMoisture = newMoisture;
+    irrigationProfile.postWateringMoisture = newMoisture;
+    
+    irrigationProfile.irrigationCycles++;
+    if (irrigationProfile.irrigationCycles > IRRIGATION_HISTORY_SIZE) {
+        irrigationProfile.irrigationCycles = IRRIGATION_HISTORY_SIZE;
+    }
+    
+    if (irrigationProfile.irrigationCycles > 1) {
+        irrigationProfile.nextMoisture = newMoisture;
+        calculatePreviousCycle();
+    }
+    
+    systemState.irrigationState = IDLE;
+    activeZoneIndex = -1;
+    
+    Serial.print("Post-irrigation moisture: ");
+    Serial.print(newMoisture);
+    Serial.println("%");
+}
+
+// ============================================================
+// 13. LCD DISPLAY SYSTEM
+// ============================================================
+
+void initLCD() {
+    lcd.init();
+    lcd.backlight();
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("AGRIGUARD");
+    lcd.setCursor(0, 1);
+    lcd.print("Initializing...");
+    delay(2000);
+    lcd.clear();
+}
+
+void showLCDMessage(String message, unsigned long duration) {
+    lcdMessage = message;
+    lcdMessageStartTime = millis();
+    lcdMessageTimer = duration;
+    lcd.clear();
+    
+    if (message.length() <= LCD_COLUMNS) {
+        lcd.setCursor(0, 0);
+        lcd.print(message);
+    } else {
+        lcd.setCursor(0, 0);
+        for (int i = 0; i < 16 && i < message.length(); i++) {
+            lcd.print(message[i]);
+        }
+        lcd.setCursor(0, 1);
+        for (int i = 16; i < 32 && i < message.length(); i++) {
+            lcd.print(message[i]);
+        }
+    }
+}
+
+String getStateString(IrrigationState state) {
+    switch(state) {
+        case IDLE: return "IDLE";
+        case WATERING: return "WATERING";
+        case SETTLING: return "SETTLING";
+        case CHECKING: return "CHECKING";
+        case MAX_CYCLES_REACHED: return "MAX CYCLES";
+        case EMERGENCY_STOP: return "EMERGENCY";
+        default: return "UNKNOWN";
+    }
+}
+
+String getSoilTypeString(SoilType type) {
+    switch(type) {
+        case CLAY: return "CLAY";
+        case SANDY: return "SANDY";
+        case LOAMY: return "LOAMY";
+        default: return "UNKNOWN";
+    }
+}
+
+void updateLCD() {
+    // Show message if active
+    if (millis() - lcdMessageStartTime < lcdMessageTimer) return;
+    
+    if (systemState.emergencyActive) {
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("!EMERGENCY STOP!");
+        lcd.setCursor(0, 1);
+        lcd.print("Press Reset");
+        return;
+    }
+    
+    if (millis() - lcdTimer < LCD_UPDATE_INTERVAL) return;
+    lcdTimer = millis();
+    
+    lcd.clear();
+    
+    // Line 1: Zones 1 & 2
+    lcd.setCursor(0, 0);
+    lcd.print("Z1:");
+    lcd.print(zones[0].currentSoilMoisture, 1);
+    lcd.print("%");
+    if (zones[0].isIrrigating) lcd.print("*");
+    
+    lcd.print(" Z2:");
+    lcd.print(zones[1].currentSoilMoisture, 1);
+    lcd.print("%");
+    if (zones[1].isIrrigating) lcd.print("*");
+    
+    // Line 2: Zone 3 & System State
+    lcd.setCursor(0, 1);
+    lcd.print("Z3:");
+    lcd.print(zones[2].currentSoilMoisture, 1);
+    lcd.print("%");
+    if (zones[2].isIrrigating) lcd.print("*");
+    
+    lcd.print(" ");
+    lcd.print(getStateString(systemState.irrigationState));
+    
+    if (systemState.irrigationState == IDLE) {
+        lcd.print(" ");
+        lcd.print(zones[0].sampleCount);
+        lcd.print("/");
+        lcd.print(SAMPLE_SIZE);
+    }
+}
+
+// ============================================================
+// 14. SYSTEM SETUP
+// ============================================================
+
+void setup() {
+    Serial.begin(115200);
+    Serial.println("AGRIGUARD System Initializing...");
+    
+    // --------------------------------------------------------
+    // SYSTEM STATE INITIALIZATION
+    // --------------------------------------------------------
+    
+    systemState.powerState = POWER_OFF;
+    systemState.irrigationState = IDLE;
+    systemState.emergencyActive = false;
+    systemState.weatherAvailable = false;
+    systemState.wifiConnected = false;
+    systemState.uptime = 0;
+    
+    // --------------------------------------------------------
+    // PIN MODES
+    // --------------------------------------------------------
+    
+    pinMode(SOIL_SENSOR_1, INPUT);
+    pinMode(SOIL_SENSOR_2, INPUT);
+    pinMode(SOIL_SENSOR_3, INPUT);
+    pinMode(TANK_TRIGGER_PIN, OUTPUT);
+    pinMode(TANK_ECHO_PIN, INPUT);
+    pinMode(ZONE1_VALVE_PIN, OUTPUT);
+    pinMode(ZONE2_VALVE_PIN, OUTPUT);
+    pinMode(ZONE3_VALVE_PIN, OUTPUT);
+    pinMode(FLOW_SENSOR_PIN, INPUT_PULLUP);
+    pinMode(E_STOP_PIN, INPUT_PULLUP);
+    pinMode(RESET_BUTTON_PIN, INPUT_PULLUP);
+    
+    // --------------------------------------------------------
+    // SAFETY - Ensure all valves start OFF
+    // --------------------------------------------------------
+    
+    digitalWrite(ZONE1_VALVE_PIN, LOW);
+    digitalWrite(ZONE2_VALVE_PIN, LOW);
+    digitalWrite(ZONE3_VALVE_PIN, LOW);
+    
+    // --------------------------------------------------------
+    // FLOW SENSOR INTERRUPT
+    // --------------------------------------------------------
+    
+    attachInterrupt(digitalPinToInterrupt(FLOW_SENSOR_PIN), countFlowPulse, RISING);
+    
+    // --------------------------------------------------------
+    // LCD INITIALIZATION
+    // --------------------------------------------------------
+    
+    initLCD();
+    showLCDMessage("System Starting...", 2000);
+    
+    // --------------------------------------------------------
+    // POWER SWITCH
+    // --------------------------------------------------------
+    
+    initializePowerSwitch();
+    
+    // --------------------------------------------------------
+    // ZONE CONFIGURATION
+    // --------------------------------------------------------
+    
+    zones[0].zoneID = 1;
+    zones[0].soilType = CLAY;
+    zones[0].dryCalibration = 3000;
+    zones[0].wetCalibration = 1200;
+    zones[0].sampleCount = 0;
+    zones[0].currentSoilMoisture = 0;
+    zones[0].avgSoilMoisture = 0;
+    zones[0].valveStatus = false;
+    zones[0].isIrrigating = false;
+    zones[0].sensorPin = SOIL_SENSOR_1;
+    zones[0].valvePin = ZONE1_VALVE_PIN;
+    zones[0].lastRecordTime = millis() - SOIL_RECORD_INTERVAL;
+    
+    zones[1].zoneID = 2;
+    zones[1].soilType = SANDY;
+    zones[1].dryCalibration = 2800;
+    zones[1].wetCalibration = 1000;
+    zones[1].sampleCount = 0;
+    zones[1].currentSoilMoisture = 0;
+    zones[1].avgSoilMoisture = 0;
+    zones[1].valveStatus = false;
+    zones[1].isIrrigating = false;
+    zones[1].sensorPin = SOIL_SENSOR_2;
+    zones[1].valvePin = ZONE2_VALVE_PIN;
+    zones[1].lastRecordTime = millis() - SOIL_RECORD_INTERVAL;
+    
+    zones[2].zoneID = 3;
+    zones[2].soilType = LOAMY;
+    zones[2].dryCalibration = 2900;
+    zones[2].wetCalibration = 1100;
+    zones[2].sampleCount = 0;
+    zones[2].currentSoilMoisture = 0;
+    zones[2].avgSoilMoisture = 0;
+    zones[2].valveStatus = false;
+    zones[2].isIrrigating = false;
+    zones[2].sensorPin = SOIL_SENSOR_3;
+    zones[2].valvePin = ZONE3_VALVE_PIN;
+    zones[2].lastRecordTime = millis() - SOIL_RECORD_INTERVAL;
+    
+    // --------------------------------------------------------
+    // TANK CONFIGURATION
+    // --------------------------------------------------------
+    
+    waterTank.model = JJ2;
+    
+    // --------------------------------------------------------
+    // IRRIGATION PROFILE
+    // --------------------------------------------------------
+    
+    irrigationProfile.zoneID = 1;
+    irrigationProfile.irrigationCycles = 0;
+    irrigationProfile.averageLitresPerPercentage = 0;
+    irrigationProfile.averageDryingRate = 0;
+    irrigationProfile.averageWaterPerCycle = 0;
+    irrigationProfile.averageCycleDuration = 0;
+    
+    // --------------------------------------------------------
+    // TIMER INITIALIZATION
+    // --------------------------------------------------------
+    
+    tankTimer = millis() - TANK_RECORD_INTERVAL;
+    weatherTimer = millis() - WEATHER_INTERVAL;
+    lcdTimer = millis() - LCD_UPDATE_INTERVAL;
+    lcdMessageStartTime = 0;
+    lcdMessageTimer = 0;
+    
+    // --------------------------------------------------------
+    // WIFI & WEATHER
+    // --------------------------------------------------------
+    
+    connectWiFi();
+    if (systemState.wifiConnected) {
+        showLCDMessage("WiFi Connected", 2000);
+        fetchWeatherData();
+    } else {
+        showLCDMessage("No WiFi - Using defaults", 2000);
+    }
+    
+    // --------------------------------------------------------
+    // SYSTEM READY
+    // --------------------------------------------------------
+    
+    systemState.powerState = POWER_ON;
+    showLCDMessage("AGRIGUARD READY", 2000);
+    
+    Serial.println("==========================================");
+    Serial.println("       AGRIGUARD ONLINE");
+    Serial.println("       System Ready");
+    Serial.println("==========================================");
+}
+
+// ============================================================
+// 15. MAIN LOOP
+// ============================================================
+
+void loop() {
+    // ========================================================
+    // SYSTEM POWER MANAGEMENT
+    // ========================================================
+    
+    if (!isSystemPoweredOn()) {
+        delay(100);
+        return;
+    }
+    
+    // ========================================================
+    // EMERGENCY STOP MONITORING
+    // ========================================================
+    
+    checkEmergencyStop();
+    if (systemState.emergencyActive) {
+        handleEmergencyState();
+        updateLCD();
+        delay(50);
+        yield();
+        return;
+    }
+    
+    // ========================================================
+    // SOIL MOISTURE MONITORING
+    // ========================================================
+    
+    static int currentZoneIndex = 0;
+    recordSoilData(zones[currentZoneIndex]);
+    currentZoneIndex = (currentZoneIndex + 1) % 3;
+    
+    // Update averages
+    for (int i = 0; i < 3; i++) {
+        if (zones[i].sampleCount > 0) {
+            zones[i].avgSoilMoisture = getAverageSoilMoisture(zones[i]);
+        }
+    }
+    
+    // ========================================================
+    // TANK MONITORING
+    // ========================================================
+    
+    updateTank();
+    updateWaterBudget();
+    
+    // ========================================================
+    // WEATHER UPDATES (Hourly)
+    // ========================================================
+    
+    if (millis() - weatherTimer >= WEATHER_INTERVAL) {
+        weatherTimer = millis();
+        connectWiFi();
+        if (systemState.wifiConnected) {
+            fetchWeatherData();
+        }
+    }
+    
+    // ========================================================
+    // IRRIGATION DECISION ENGINE
+    // ========================================================
+    
+    static int irrigationZoneIndex = 0;
+    
+    switch (systemState.irrigationState) {
+        case IDLE:
+            if (shouldStartIrrigation(zones[irrigationZoneIndex])) {
+                startIrrigation(zones[irrigationZoneIndex]);
+            }
+            irrigationZoneIndex = (irrigationZoneIndex + 1) % 3;
+            break;
+            
+        case WATERING:
+            updateWatering(zones[irrigationZoneIndex]);
+            break;
+            
+        case SETTLING:
+            updateSettling(zones[irrigationZoneIndex]);
+            break;
+            
+        case CHECKING:
+            systemState.irrigationState = IDLE;
+            activeZoneIndex = -1;
+            break;
+            
+        case MAX_CYCLES_REACHED:
+            for (int i = 0; i < 3; i++) {
+                if (zones[i].valveStatus) valveOFF(zones[i]);
+            }
+            systemState.irrigationState = IDLE;
+            activeZoneIndex = -1;
+            break;
+            
+        case EMERGENCY_STOP:
+            handleEmergencyState();
+            break;
+    }
+    
+    // ========================================================
+    // WATER BUDGET PREDICTIONS
+    // ========================================================
+    
+    if (systemState.irrigationState == IDLE) {
+        waterBudget.predictedDemand = predictWaterDemand(zones[0]);
+    }
+    
+    // ========================================================
+    // LCD DISPLAY
+    // ========================================================
+    
+    updateLCD();
+    
+    // ========================================================
+    // SYSTEM STATUS LOGGING (Every 30 seconds)
+    // ========================================================
+    
+    static unsigned long statusTimer = 0;
+    if (millis() - statusTimer >= 30000UL) {
+        statusTimer = millis();
+        systemState.uptime += 30;
+        
+        Serial.println("========== STATUS ==========");
+        Serial.print("Uptime: ");
+        Serial.print(systemState.uptime);
+        Serial.println(" seconds");
+        Serial.print("State: ");
+        Serial.println(getStateString(systemState.irrigationState));
+        Serial.print("Tank: ");
+        Serial.print(waterTank.waterPercentage);
+        Serial.println("%");
+        for (int i = 0; i < 3; i++) {
+            Serial.print("Zone ");
+            Serial.print(i + 1);
+            Serial.print(": ");
+            Serial.print(zones[i].currentSoilMoisture);
+            Serial.print("%");
+            if (zones[i].isIrrigating) Serial.print(" *");
+            Serial.println();
+        }
+        Serial.println("============================");
+    }
+    
+    // ========================================================
+    // PREVENT WATCHDOG TIMER
+    // ========================================================
+    
+    yield();
+    delay(10);
+}

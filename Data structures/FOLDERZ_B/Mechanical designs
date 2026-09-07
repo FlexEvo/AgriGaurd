@@ -1,10 +1,24 @@
-Encapsulator Design & Fabrication
+### Encapsulator Design Sources and Attribution
 
-The Agriguard control electronics are housed inside a custom-designed 3D-printed enclosure. The enclosure is designed using CAD software and fabricated using FDM (Fused Deposition Modelling) 3D printing. This allows the dimensions, mounting points, cable openings and component locations to be customised according to the electronic components used in the system.
+The Agriguard encapsulator was developed using existing open-source 3D-printable enclosure designs as **reference designs** rather than directly copying an existing enclosure. These designs were studied to understand common approaches to enclosure construction, including removable covers, internal mounting points, cable openings, ventilation and screw fastening.
 
-The enclosure consists of a main body and removable cover. The main body provides the structural support for the ESP32 controller, relay/MOSFET circuitry, power connections and other control electronics, while the cover protects the components from accidental contact, dust and environmental exposure.
+Reference designs were obtained from publicly available open-source repositories and 3D-printing communities, including:
 
-Component Fastening
+* **GitHub – 3D Electronics Enclosure by yeomann:** A parametric OpenSCAD electronics enclosure featuring a removable lid, cable openings, ventilation and adjustable dimensions. The project is licensed under **CC BY-NC 4.0**.
+* **Printables – ESP32 DevKit V1 Case:** An open-source ESP32 enclosure used as a reference for protecting and mounting an ESP32 development board. The design is licensed under **GNU GPL v3.0**.
+* **Printables – Roomy ESP32 Enclosures:** A larger ESP32 enclosure concept that provides additional internal space for wiring and electronics. It uses a **CC BY-NC-SA 4.0** licence.
+* **Printables – ESP32 DevKit V1 36-pin Enclosure:** A two-piece enclosure consisting of a printed base and removable cover, providing another reference for the physical arrangement of an ESP32 enclosure. It uses a **CC BY-NC-SA** licence.
+
+These designs served as **engineering references and sources of design inspiration**. The Agriguard encapsulator was subsequently adapted and redesigned around the project's specific hardware, including the ESP32 controller, relay/MOSFET circuitry, sensor connections, emergency-stop system, power connections and required cable-routing locations.
+
+The final enclosure therefore represents a **project-specific design** rather than an unmodified reproduction of an existing model. Dimensions, mounting positions, openings and component arrangement were selected according to the requirements of the Agriguard system.
+
+All external designs used for reference are acknowledged to their respective creators, and their individual licences are respected when using, modifying or redistributing any of their original CAD files.
+
+
+
+
+### Component Fastening
 
 Components are mounted using integrated mounting bosses/standoffs that are incorporated into the 3D-printed enclosure.
 

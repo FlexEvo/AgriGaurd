@@ -1,1 +1,445 @@
-Insert reasons for choosing the components electronic
+# Component Selection and Justification
+
+The AgriGuard system was designed using a combination of sensing, processing, control, user-interface and safety components. The components were selected based on the requirements of the system, including low power consumption, sufficient processing capability, multiple sensor inputs, automated control of irrigation zones, user safety, reliability and ease of integration.
+
+The main components used in the system are:
+
+| Component                        | Quantity | Primary Function                               |
+| -------------------------------- | -------: | ---------------------------------------------- |
+| ESP32                            |        1 | Main processing and control unit               |
+| 4-Channel Relay Module           |        1 | Controls high-power irrigation devices         |
+| Solenoid Irrigation Valves       |        3 | Controls water flow to individual zones        |
+| Capacitive Soil-Moisture Sensors |        3 | Measures soil moisture in each irrigation zone |
+| ON/OFF Switch                    |        1 | Main system power/control switch               |
+| Emergency-Stop Switch            |        1 | Immediately stops normal system operation      |
+| Reset Switch                     |        1 | Resets the system after an emergency stop      |
+| Water-Level Sensor               |        1 | Monitors available water in the storage tank   |
+| LCD Module                       |        1 | Displays system information to the user        |
+| Pull-up Resistors                |        4 | Provides stable digital input states           |
+
+---
+
+## 1. ESP32 — Main Processing and Control Unit
+
+The **ESP32** was selected as the main microcontroller unit (MCU) of AgriGuard.
+
+The ESP32 is responsible for collecting sensor data, processing the information, executing the irrigation decision logic and controlling the irrigation hardware.
+
+### Why the ESP32 was selected
+
+The ESP32 is suitable for AgriGuard because it provides:
+
+* Multiple digital and analogue GPIO pins
+* Built-in Wi-Fi connectivity
+* Sufficient processing power for real-time sensor processing
+* Low-cost hardware
+* Support for C/C++ programming
+* Compatibility with common sensors and relay modules
+* Sufficient memory for the irrigation-control software
+* Ability to communicate with external APIs
+
+The built-in Wi-Fi is particularly useful because AgriGuard can obtain environmental information from an online weather service. This allows the system to consider weather conditions alongside locally measured soil conditions.
+
+The ESP32 also provides enough I/O capability to accommodate the three soil-moisture sensors, water-level sensing, switches, LCD communication and relay control.
+
+### Role in AgriGuard
+
+The ESP32 acts as the central controller:
+
+```text
+Soil Sensors ───────┐
+                    │
+Water-Level Sensor ─┤
+                    │
+Switches ───────────┤
+                    ▼
+                 ESP32
+                    │
+          ┌─────────┼─────────┐
+          ▼         ▼         ▼
+       Relays      LCD     Wi-Fi
+          │                   │
+          ▼                   ▼
+      Valves              Weather Data
+```
+
+The ESP32 was therefore chosen instead of using a separate MPU, PLC or radio controller because the processing, control, connectivity and I/O requirements of the prototype can be handled by a single MCU.
+
+---
+
+# 2. Capacitive Soil-Moisture Sensors — 3 Units
+
+Three capacitive soil-moisture sensors are used, with one sensor assigned to each irrigation zone.
+
+```text
+Sensor 1 → Zone 1
+Sensor 2 → Zone 2
+Sensor 3 → Zone 3
+```
+
+### Why capacitive sensors were selected
+
+Capacitive soil-moisture sensors were selected instead of basic resistive soil-moisture sensors because they measure changes in the soil's dielectric properties rather than relying directly on electrical conduction between exposed electrodes.
+
+This makes them more suitable for long-term agricultural monitoring because there are fewer exposed conductive surfaces involved in the measurement process.
+
+The sensors also provide analogue output, allowing the ESP32 to process different moisture levels rather than simply detecting a binary "wet/dry" condition.
+
+### Role in AgriGuard
+
+The sensors provide the primary information used to determine whether irrigation may be required.
+
+However, the raw sensor value is not treated as a universal percentage. AgriGuard uses calibration to account for differences caused by factors such as soil type and sensor characteristics.
+
+The measured moisture data can also be used to determine the **drying rate of each irrigation zone**.
+
+This is important to the project's longer-term objective of allowing AgriGuard to learn how individual zones behave over time.
+
+---
+
+# 3. Four-Channel Relay Module — 1 Unit
+
+A four-channel relay module is used as the electrical interface between the ESP32 and the irrigation control hardware.
+
+### Why a relay module was selected
+
+The ESP32 GPIO pins are designed for low-power control signals and cannot directly drive irrigation valves that require higher voltage/current.
+
+The relay module therefore provides electrical isolation and switching capability between the low-voltage control electronics and the irrigation devices.
+
+The four-channel module also provides an additional channel beyond the three currently required for the irrigation valves.
+
+```text
+ESP32
+ │
+ ├── Relay 1 ──► Valve 1
+ ├── Relay 2 ──► Valve 2
+ ├── Relay 3 ──► Valve 3
+ └── Relay 4 ──► Spare / Future Expansion
+```
+
+The fourth relay channel provides potential for future expansion without requiring an additional relay module.
+
+---
+
+# 4. Solenoid Irrigation Valves — 3 Units
+
+Three solenoid valves are used to independently control water flow to the three irrigation zones.
+
+```text
+             Water Supply
+                  │
+          ┌───────┼───────┐
+          ▼       ▼       ▼
+       Valve 1 Valve 2 Valve 3
+          │       │       │
+          ▼       ▼       ▼
+        Zone 1  Zone 2  Zone 3
+```
+
+### Why three valves were selected
+
+Three valves allow the farm to be divided into three independently controlled irrigation zones.
+
+This is important because different areas of a farm may have different:
+
+* Soil types
+* Moisture levels
+* Drying rates
+* Crop requirements
+* Water requirements
+
+Instead of supplying water to the entire farm simultaneously, AgriGuard can activate the appropriate valve for the zone requiring irrigation.
+
+This provides the foundation for **zone-based water management**.
+
+---
+
+# 5. ON/OFF Switch — 1 Unit
+
+A dedicated ON/OFF switch is used to control the normal operating state of the system.
+
+### Purpose
+
+The switch provides a simple physical method for the operator to enable or disable the AgriGuard system.
+
+This is preferable to relying exclusively on software commands because the operator has a direct physical interface with the system.
+
+The ON/OFF control is separate from the emergency-stop function so that normal system operation and emergency shutdown are treated as different functions.
+
+---
+
+# 6. Emergency-Stop Switch — 1 Unit
+
+A dedicated emergency-stop switch is included as a safety feature.
+
+### Purpose
+
+The E-STOP provides the operator with a rapid method of stopping the irrigation system when an unsafe or abnormal condition occurs.
+
+When activated, the system should prevent normal irrigation operation and place the system into a safe state.
+
+The emergency-stop function has priority over normal irrigation commands.
+
+```text
+Normal Operation
+       │
+       ▼
+  Irrigation Logic
+       │
+       ▼
+   Valve Control
+
+       ▲
+       │
+   E-STOP
+       │
+       ▼
+  Safe Shutdown
+```
+
+The E-STOP is particularly important because AgriGuard controls physical equipment and water flow. A failure in software should not prevent the operator from stopping the system.
+
+---
+
+# 7. Reset Switch — 1 Unit
+
+A separate reset switch is used to recover the system after an emergency-stop condition.
+
+### Purpose
+
+The reset switch prevents the system from immediately returning to normal operation simply because the emergency condition has been released.
+
+The intended sequence is:
+
+```text
+System Operating
+       ↓
+E-STOP Pressed
+       ↓
+System enters Safe State
+       ↓
+Problem is corrected
+       ↓
+E-STOP released
+       ↓
+Reset pressed
+       ↓
+System returns to operation
+```
+
+This provides a deliberate recovery process and reduces the possibility of unintended valve activation.
+
+---
+
+# 8. Water-Level Sensor — 1 Unit
+
+The water-level sensor monitors the amount of water available in the irrigation storage tank.
+
+### Why it was selected
+
+Monitoring soil moisture alone is not sufficient for intelligent irrigation.
+
+The system must also know whether sufficient water is available.
+
+The water-level measurement therefore provides information about the system's available water resource.
+
+This becomes particularly important for the **water-budgeting functionality** of AgriGuard.
+
+For example:
+
+```text
+Tank Water Available
+          +
+Zone Water Requirements
+          +
+Zone Priority
+          ↓
+Water Allocation
+          ↓
+Irrigation Decision
+```
+
+The water-level sensor therefore connects the physical water supply with the irrigation decision-making system.
+
+---
+
+# 9. LCD Module — 1 Unit
+
+An LCD module provides a local user interface for the system.
+
+### Why an LCD was selected
+
+An LCD provides immediate feedback without requiring the user to connect to a computer or external application.
+
+The display can be used to show information such as:
+
+* Soil moisture
+* Zone status
+* Valve status
+* Water level
+* Irrigation status
+* System state
+* Emergency-stop status
+* Environmental data
+
+For example:
+
+```text
+ZONE 1: 42%
+ZONE 2: 67%
+ZONE 3: 51%
+
+Tank: 74%
+Status: NORMAL
+```
+
+This makes the system easier to monitor during testing and operation.
+
+---
+
+# 10. Pull-Up Resistors — 4 Units
+
+Four resistors are used as pull-up resistors for digital input signals.
+
+These are associated with the physical control inputs such as the system switches and safety controls.
+
+### Why pull-up resistors are required
+
+A digital input can become **floating** when a switch is open and no defined voltage is applied to the input.
+
+A floating input can produce unpredictable HIGH and LOW readings.
+
+A pull-up resistor establishes a defined default HIGH state.
+
+When the switch is activated, the input can then be pulled LOW.
+
+Conceptually:
+
+```text
+VCC
+ │
+[Pull-up resistor]
+ │
+ ├──────── ESP32 GPIO
+ │
+ Switch
+ │
+GND
+```
+
+This produces a stable digital input and improves the reliability of the switch and safety-control circuitry.
+
+---
+
+# 🔧 Active and Passive Components
+
+The system contains both active and passive electronic components.
+
+### Active components
+
+The main active components include:
+
+* ESP32 MCU
+* Capacitive soil-moisture sensors
+* Water-level sensor
+* Relay module
+* Solenoid valves
+* LCD module
+
+These components either process signals, generate signals, sense physical conditions or perform an electrical/mechanical action.
+
+### Passive components
+
+The primary passive components currently used are:
+
+* Pull-up resistors
+* Wiring/connectors
+* Other passive protection/interface components where required by the final circuit design
+
+The pull-up resistors are particularly important because they establish reliable logic levels for the digital inputs.
+
+---
+
+# 🧩 Overall Component Interaction
+
+The selected components work together as a complete control system.
+
+```text
+                 ┌─────────────────┐
+                 │ Soil Sensor 1   │
+                 └────────┬────────┘
+                          │
+                 ┌─────────────────┐
+                 │ Soil Sensor 2   │
+                 └────────┬────────┘
+                          │
+                 ┌─────────────────┐
+                 │ Soil Sensor 3   │
+                 └────────┬────────┘
+                          │
+                          ▼
+                 ┌─────────────────┐
+                 │      ESP32      │
+                 │                 │
+                 │ Data Processing │
+                 │ Decision Logic  │
+                 │ Zone Control    │
+                 └───────┬─────────┘
+                         │
+              ┌──────────┼──────────┐
+              │          │          │
+              ▼          ▼          ▼
+          Relay 1    Relay 2    Relay 3
+              │          │          │
+              ▼          ▼          ▼
+          Valve 1    Valve 2    Valve 3
+              │          │          │
+              ▼          ▼          ▼
+           Zone 1     Zone 2     Zone 3
+
+       Water-Level Sensor
+               │
+               ▼
+             ESP32
+
+       Switches / E-STOP
+               │
+               ▼
+             ESP32
+
+              ESP32
+                │
+                ▼
+              LCD
+```
+
+The ESP32 therefore acts as the central point connecting the sensing, decision-making, control, safety and user-interface sections of AgriGuard.
+
+---
+
+# ⚖️ Overall Component Selection Rationale
+
+The component selection was based on five main engineering requirements:
+
+### 1. Sensing
+
+The three soil-moisture sensors and water-level sensor provide the physical measurements required for irrigation decisions.
+
+### 2. Processing
+
+The ESP32 provides sufficient processing capability and I/O for the current prototype while also providing Wi-Fi connectivity for weather data.
+
+### 3. Control
+
+The relay module and three solenoid valves allow the ESP32 to control individual irrigation zones.
+
+### 4. User Interaction
+
+The ON/OFF switch, E-STOP, reset switch and LCD provide physical control, safety and system feedback.
+
+### 5. Expandability
+
+The ESP32's available GPIO and the unused fourth relay channel provide room for additional functionality as the project develops.
+
+Overall, the selected components provide a relatively low-cost architecture while still supporting the project's main objectives of **automated irrigation, zone-based control, water monitoring, safety and adaptive water management**.

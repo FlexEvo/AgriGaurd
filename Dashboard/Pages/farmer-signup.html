@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Create your Agriguard account</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+:root{--bg:#F3F6F1;
+  --sf:#fff;
+  --ink:#1B2A21;
+  --mu:#566559;
+  --ln:#CBD6C9;
+  --gr:#2B7A4B;
+  --grs:#DDF1E4;
+  --bl:#1D6AA5;
+  --bls:#DCEBF7;
+  --am:#8F5B0A;
+  --ams:#FBEBCB;
+  --rd:#A8322B;
+  --rds:#F9DFDC;
+  --side:#1E5A38;
+box-sizing:border-box;
+padding-top:env(safe-area-inset-top,0px);
+padding-bottom:env(safe-area-inset-bottom,0px)}
+
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0F1913;--sf:#17241C;--ink:#E6EFE8;--mu:#9DB0A2;--ln:#35493A;--gr:#5CC785;--grs:#17301F;--bl:#6DB6EA;--bls:#12293B;--am:#F0B656;--ams:#35290F;--rd:#F0847B;--rds:#3A1B18;--side:#0B1A11}}
+:root[data-theme="dark"]{--bg:#0F1913;--sf:#17241C;--ink:#E6EFE8;--mu:#9DB0A2;--ln:#35493A;--gr:#5CC785;--grs:#17301F;--bl:#6DB6EA;--bls:#12293B;--am:#F0B656;--ams:#35290F;--rd:#F0847B;--rds:#3A1B18;--side:#0B1A11}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.5 "Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif}
+h1,h2,h3,p,ol{margin:0}
+h1{font-size:clamp(26px,3.4vw,34px);line-height:1.15;outline:0}
+h2{font-size:19px}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible,.opt:has(:focus-visible){outline:3px solid var(--bl);outline-offset:2px}
+.wrap{display:grid;grid-template-columns:330px minmax(0,1fr);min-height:100vh}
+.rail{background:var(--side);color:#fff;padding:32px 28px;display:flex;flex-direction:column;gap:30px;position:sticky;top:0;height:100vh}
+.brand{font-weight:700;font-size:22px;display:flex;gap:10px;align-items:center}
+.brand i{font-style:normal;width:34px;height:34px;border-radius:10px;background:#fff;display:grid;place-items:center}
+.rail ol{list-style:none;padding:0;display:flex;flex-direction:column;gap:6px}
+.rail li{display:flex;align-items:center;gap:14px;padding:9px 0;opacity:.7}
+.rail li b{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.6);display:grid;place-items:center;font-size:14px;flex:none}
+.rail li.on{opacity:1;font-weight:700}.rail li.on b{background:#fff;color:var(--side);border-color:#fff}
+.rail li.ok{opacity:1}.rail li.ok b{background:rgba(255,255,255,.2)}
+.rail small{margin-top:auto;opacity:.8;font-size:14px}
+.mprog{display:none}
+.pane{padding:40px clamp(18px,4vw,56px) 120px;max-width:760px;width:100%}
+.lead{color:var(--mu);margin:8px 0 26px}
+.f{margin:0 0 20px;border:0;padding:0;min-width:0}
+.f>label,legend{display:block;font-weight:700;margin-bottom:6px;padding:0}
+.hint{color:var(--mu);font-size:15px;margin-top:4px}
+input[type=text],input[type=email],input[type=password],input[type=number],select{width:100%;background:var(--sf);border:2px solid var(--ln);border-radius:12px;padding:12px 14px;min-height:50px}
+input[aria-invalid=true],select[aria-invalid=true]{border-color:var(--rd)}
+.err{color:var(--rd);font-weight:700;margin-top:6px;font-size:16px}
+.err::before{content:"⚠ "}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.opts.w{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.opt{position:relative;display:flex;flex-direction:column;gap:2px;border:2px solid var(--ln);background:var(--sf);border-radius:14px;padding:12px 14px;cursor:pointer}
+.opt input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.opt span{color:var(--mu);font-size:15px}
+.opt:has(input:checked){border-color:var(--gr);background:var(--grs)}
+.opt:has(input:checked)::after{content:"✓";position:absolute;top:8px;right:12px;color:var(--gr);font-weight:700}
+.chk{display:flex;gap:12px;align-items:flex-start;font-weight:400}
+.chk input{width:24px;height:24px;margin-top:2px;accent-color:var(--gr);flex:none}
+.card{background:var(--sf);border:1px solid var(--ln);border-radius:16px;padding:20px;margin-bottom:18px}
+.card h2{margin-bottom:14px}
+.sum{background:var(--bls);border-radius:14px;padding:14px 16px;margin:0 0 20px}
+.sum b{font-size:18px}
+.rules{list-style:none;padding:0;margin:8px 0 0;color:var(--mu);font-size:15px}
+.rules .y{color:var(--gr);font-weight:700}
+.step{display:flex;align-items:center;gap:14px}
+.step button{width:48px;height:48px;border-radius:12px;border:2px solid var(--ln);background:var(--sf);font-size:24px;font-weight:700}
+.step b{font-size:28px;min-width:30px;text-align:center}
+.btn{border:2px solid var(--ln);background:var(--sf);border-radius:12px;padding:12px 22px;font-weight:700;min-height:50px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.p{background:var(--gr);border-color:var(--gr);color:#fff}
+.btn.sm{min-height:44px;padding:8px 14px}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--sf);border-top:1px solid var(--ln);padding:12px clamp(18px,4vw,56px) calc(12px + env(safe-area-inset-bottom,0px));display:flex;gap:12px;justify-content:space-between;z-index:5}
+.bar .in{display:flex;gap:12px;justify-content:space-between;width:100%;max-width:760px;margin-left:330px}
+.alert{background:var(--rds);border-left:6px solid var(--rd);border-radius:12px;padding:12px 16px;margin-bottom:20px;font-weight:700}
+.note{background:var(--ams);border-left:6px solid var(--am);border-radius:12px;padding:12px 16px;margin-bottom:20px}
+.dev{display:flex;gap:14px;align-items:center;padding:12px 0;border-top:1px solid var(--ln)}
+.dev:first-of-type{border-top:0}
+.spin{width:22px;height:22px;border:3px solid var(--ln);border-top-color:var(--gr);border-radius:50%;animation:s 1s linear infinite;flex:none}
+@keyframes s{to{transform:rotate(1turn)}}
+.dot{width:22px;text-align:center;flex:none;font-weight:700}
+.ok{color:var(--gr);font-weight:700}
+dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 18px}dt{color:var(--mu)}dd{margin:0;font-weight:700}
+a{color:var(--bl);font-weight:700}
+details summary{cursor:pointer;font-weight:700;color:var(--bl);padding:8px 0}
+.pw{display:flex;gap:8px}
+@media (max-width:900px){
+.wrap{grid-template-columns:1fr}.rail{position:static;height:auto;padding:14px 18px;gap:10px}.rail ol,.rail small{display:none}.mprog{display:block}
+.mprog p{font-weight:700;margin-bottom:6px}.mprog div{height:8px;background:rgba(255,255,255,.25);border-radius:9px;overflow:hidden}.mprog i{display:block;height:100%;background:#fff;border-radius:9px}
+.bar .in{margin-left:0}.pane{padding-top:24px}}
+@media (max-width:560px){.row2{grid-template-columns:1fr}.btn{padding:12px 16px}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <aside class="rail"><div class="brand"><i aria-hidden="true">🌱</i>Agriguard</div><ol id="steps" aria-label="Setup progress"></ol><div class="mprog" id="mp"></div><small>Demo: what you type stays in this page. Nothing is sent or saved.</small></aside>
+  <main class="pane" id="pane"></main>
+</div>
+<div class="bar"><div class="in" id="bar"></div></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const NAMES=['Account','Farm','Tank','Zones','Soil','Controller','Done'];
+const CROPS=['Vegetables','Fruit','Maize','Grain','Mixed crops','Other'];
+const SIZES=['< 500 m²','500–1,000 m²','1,000–5,000 m²','5,000+ m²'];
+const TANKS=[2000,5250,5500,10000,15000,20000];
+const mkZone=n=>({name:'Zone '+n,crop:'',detail:'',method:'',area:'',soil:'',feel:''});
+const D={acc:{name:'',email:'',pw:'',pw2:'',terms:false},
+ farm:{name:'',country:'South Africa',region:'',place:'',lat:'',lng:'',crop:'',size:'',window:'Early morning'},
+ tank:{profile:'',cap:'',height:'',dia:'',level:'',reserve:30,refill:'',bmode:'auto',budget:''},
+ zones:[mkZone(1),mkZone(2),mkZone(3)],dev:{state:'idle',sensors:[],skipped:false}};
+let step=0,E={},login=false,tok=0;
+const eid=k=>k.replace(/\./g,'-');
+const get=k=>k.split('.').reduce((o,p)=>o==null?o:o[p],D);
+const set=(k,v)=>{const p=k.split('.'),l=p.pop();p.reduce((o,x)=>o[x],D)[l]=v};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtL=n=>Math.round(n).toLocaleString('en-ZA')+' L';
+const err=k=>E[k]?`<p class="err" id="e-${eid(k)}" role="alert">${E[k]}</p>`:'';
+const inv=k=>E[k]?`aria-invalid="true" aria-describedby="e-${eid(k)}"`:'';
+const inp=(k,label,o={})=>`<div class="f"><label for="${eid(k)}">${label}${o.opt?' <span class="hint">(optional)</span>':''}</label><input id="${eid(k)}" type="${o.t||'text'}" value="${esc(get(k))}" data-k="${k}" ${inv(k)} ${o.ph?`placeholder="${o.ph}"`:''} ${o.ac?`autocomplete="${o.ac}"`:''} ${o.im?`inputmode="${o.im}"`:''}>${o.hint?`<p class="hint">${o.hint}</p>`:''}${err(k)}</div>`;
+const sel=(k,label,list,o={})=>`<div class="f"><label for="${eid(k)}">${label}</label><select id="${eid(k)}" data-k="${k}" ${inv(k)}><option value="">Choose...</option>${list.map(v=>`<option ${get(k)===v?'selected':''}>${v}</option>`).join('')}</select>${err(k)}</div>`;
+const opts=(k,label,list,o={})=>`<fieldset class="f" id="${eid(k)}" ${inv(k)}><legend>${label}</legend>${o.hint?`<p class="hint" style="margin:-4px 0 8px">${o.hint}</p>`:''}<div class="opts ${o.w?'w':''}">${list.map(x=>`<label class="opt"><input type="radio" name="${k}" id="${eid(k)}-${x[0]}" value="${esc(x[0])}" data-k="${k}" ${o.r?'data-r="1"':''} ${String(get(k))===String(x[0])?'checked':''}><b>${x[1]}</b>${x[2]?`<span>${x[2]}</span>`:''}</label>`).join('')}</div>${err(k)}</fieldset>`;
+const capNow=()=>['other','custom'].includes(D.tank.profile)?+D.tank.cap:+D.tank.profile;
+const recBudget=()=>Math.round(capNow()*0.4/50)*50;
+
+/* ---------- Steps ---------- */
+function sAcc(){return `<h1 tabindex="-1">Create your Agriguard account</h1><p class="lead">This takes about 5 minutes. Then we will ask a few simple questions about your farm so Agriguard can water it properly.</p>
+${inp('acc.name','Your full name',{ac:'name'})}${inp('acc.email','Email address',{t:'email',ac:'email',hint:'We will use this to log you in.'})}
+<div class="f"><label for="acc-pw">Password</label><div class="pw"><input id="acc-pw" type="password" data-k="acc.pw" value="${esc(D.acc.pw)}" autocomplete="new-password" ${inv('acc.pw')}><button class="btn sm" type="button" data-act="pw" aria-label="Show or hide passwords">Show</button></div><ul class="rules" id="rules"></ul>${err('acc.pw')}</div>
+${inp('acc.pw2','Type the password again',{t:'password',ac:'new-password'})}
+<div class="f"><label class="chk" for="acc-terms"><input id="acc-terms" type="checkbox" data-k="acc.terms" ${D.acc.terms?'checked':''} ${inv('acc.terms')}><span>I agree to the Terms of Use and Privacy Policy.</span></label>${err('acc.terms')}</div>
+<p>Already have an account? <a href="#" data-act="login">Log in</a></p>`}
+function sLogin(){return `<h1 tabindex="-1">Welcome back</h1><p class="lead">Log in to see your farm.</p>${inp('lg.email','Email address',{t:'email'})}${inp('lg.pw','Password',{t:'password'})}<label class="chk" style="margin-bottom:18px"><input type="checkbox"><span>Remember me</span></label><p><a href="#" data-act="forgot">Forgot password?</a> · <a href="#" data-act="signup">Create account</a></p><div id="lgmsg"></div>`}
+function sFarm(){return `<h1 tabindex="-1">Tell us about your farm</h1><p class="lead">This helps Agriguard plan around your weather and your crops.</p>
+${inp('farm.name','Farm name',{ph:'e.g. Mokoena Family Farm'})}
+<div class="row2">${sel('farm.country','Country',['South Africa','Botswana','Eswatini','Lesotho','Mozambique','Namibia','Zimbabwe','Other'])}${inp('farm.region','Province or region',{ph:'e.g. Gauteng'})}</div>
+${inp('farm.place','Nearest town or area',{ph:'e.g. Pretoria East',hint:'Used to get your local weather.'})}
+<p style="margin:-6px 0 8px"><button class="btn sm" type="button" data-act="loc">📍 Use my current location</button></p><p class="hint" id="locmsg" role="status">${D.farm.lat?'Location saved from your device.':''}</p>
+<details><summary>Enter exact coordinates instead</summary><div class="row2" style="margin-top:8px">${inp('farm.lat','Latitude',{opt:1,im:'decimal',ph:'-25.7479'})}${inp('farm.lng','Longitude',{opt:1,im:'decimal',ph:'28.2293'})}</div></details>
+<p class="hint" style="margin:8px 0 22px">Time zone: ${Intl.DateTimeFormat().resolvedOptions().timeZone} (from your device)</p>
+${opts('farm.crop','What do you mainly grow?',CROPS.map(c=>[c,c]))}
+${opts('farm.size','About how big is the area you water?',SIZES.map(c=>[c,c]))}
+${sel('farm.window','When would you like watering to happen?',['Early morning','Evening','Let Agriguard decide'])}`}
+function sTank(){const cap=capNow(),pr=D.tank.profile,res=cap*D.tank.reserve/100;
+ return `<h1 tabindex="-1">Your water tank</h1><p class="lead">Agriguard keeps a safety reserve in the tank so you never run completely dry.</p>
+${opts('tank.profile','Which tank do you have?',[...TANKS.map(t=>[String(t),t.toLocaleString('en-ZA')+' L','JoJo tank']),['other','Another tank','I know the size'],['custom','Custom tank','I will enter the measurements']],{r:1})}
+${(pr==='other'||pr==='custom')?`<div class="row2">${inp('tank.cap','Tank size in litres',{t:'number',im:'numeric'})}${pr==='custom'?inp('tank.height','Tank height (cm)',{t:'number',im:'numeric'}):''}</div>${pr==='custom'?inp('tank.dia','Tank width or diameter (cm)',{t:'number',im:'numeric'}):''}`:''}
+<div class="sum" id="tsum" aria-live="polite">${tsum()}</div>
+${opts('tank.level','Right now, how full is the tank?',[['100','Full'],['75','About ¾'],['50','About half'],['25','About ¼'],['10','Almost empty']],{hint:'Agriguard uses this to set up the tank level reading.'})}
+<details style="margin-bottom:20px"><summary>Change the safety reserve (advanced)</summary><label for="tank-reserve" class="hint" style="display:block;margin-top:6px">Protected reserve: <b id="rv">${D.tank.reserve}</b>%. We recommend 30%.</label><input type="range" id="tank-reserve" data-k="tank.reserve" min="10" max="60" step="5" value="${D.tank.reserve}" style="width:100%;accent-color:var(--gr)">${err('tank.reserve')}</details>
+${sel('tank.refill','How does the tank get refilled?',['Rain','Borehole','Municipal water','Water truck','Mixed or other'])}
+${opts('tank.bmode','How much water may be used each day?',[['auto','Let Agriguard decide','Recommended'],['custom','I will set a limit','Choose litres per day']],{r:1})}
+${D.tank.bmode==='custom'?inp('tank.budget','Daily water limit (litres)',{t:'number',im:'numeric'}):''}`}
+function tsum(){const c=capNow();if(!(c>0))return'<span class="hint">Choose your tank to see how much water is usable.</span>';const r=c*D.tank.reserve/100;
+ return `<b>${fmtL(c)}</b> tank · <b>${fmtL(r)}</b> kept as reserve (${D.tank.reserve}%) · about <b>${fmtL(c-r)}</b> usable<br><span class="hint">Recommended daily limit: ${fmtL(recBudget())}</span>`}
+function sZones(){const n=D.zones.length;
+ return `<h1 tabindex="-1">Your irrigation zones</h1><p class="lead">A zone is one area watered by one valve. Agriguard supports up to 6 zones.</p>
+<div class="f"><label id="znl">How many zones do you have?</label><div class="step" role="group" aria-labelledby="znl"><button type="button" data-act="zm" aria-label="One fewer zone">−</button><b aria-live="polite">${n}</b><button type="button" data-act="zp" aria-label="One more zone">+</button></div>${err('zones')}</div>
+${D.zones.map((z,i)=>`<section class="card"><h2>Zone ${i+1}</h2>${inp(`zones.${i}.name`,'Zone name')}<div class="row2">${sel(`zones.${i}.crop`,'What is grown here?',CROPS)}${inp(`zones.${i}.detail`,'Which crop exactly?',{opt:1,ph:'e.g. Tomatoes'})}</div><div class="row2">${sel(`zones.${i}.method`,'How is it watered?',['Drip lines','Sprinklers','Hose or furrows','Other'])}${inp(`zones.${i}.area`,'Size in m²',{opt:1,t:'number',im:'numeric'})}</div></section>`).join('')}`}
+function sSoil(){return `<h1 tabindex="-1">Your soil</h1><p class="lead">This lets Agriguard learn how fast each zone dries out. Take a handful of soil from the zone and squeeze it.</p>
+${D.zones.map((z,i)=>`<section class="card"><h2>${esc(z.name)}${z.detail||z.crop?' · '+esc(z.detail||z.crop):''}</h2>${opts(`zones.${i}.soil`,'What does the soil do when squeezed?',[['Sandy','Sandy','Falls apart easily.'],['Loamy','Loamy','Holds shape but breaks apart.'],['Clay','Clay','Sticky and holds shape.'],['Unknown','I am not sure','Agriguard will learn it.']],{w:1})}${opts(`zones.${i}.feel`,'Right now, the soil feels:',[['Dry','Dry'],['Damp','Damp'],['Wet','Wet']],{hint:'Dig about 10 cm down, next to where the sensor will go.'})}</section>`).join('')}`}
+function sDev(){const d=D.dev,n=D.zones.length,find=d.state==='idle'?`<button class="btn p" type="button" data-act="search">Search for my controller</button> <button class="btn" type="button" data-act="skip">Skip for now</button>`:'';
+ const row=(ic,t,s)=>`<div class="dev"><span class="dot">${ic}</span><div><b>${t}</b>${s?`<p class="hint">${s}</p>`:''}</div></div>`;
+ let h='';
+ if(d.state==='search')h=`<div class="dev"><span class="spin" role="status" aria-label="Searching"></span><b>Searching...</b></div>`;
+ if(['found','conn','pair','done'].includes(d.state))h+=row('✓','Controller found','AGRIGUARD-001');
+ if(d.state==='found')h+=`<p style="margin-top:10px"><button class="btn p" type="button" data-act="connect">Connect</button></p>`;
+ if(d.state==='conn')h+=`<div class="dev"><span class="spin"></span><b>Connecting...</b></div>`;
+ if(['pair','done'].includes(d.state)){h+=row('✓','Connected','');for(let i=0;i<n;i++){const ok=d.sensors[i];h+=ok?row('✓',`${esc(D.zones[i].name)} sensor connected`,''):`<div class="dev"><span class="spin"></span><b>Pairing ${esc(D.zones[i].name)} sensor...</b></div>`}}
+ if(d.state==='done')h+=`<p class="ok" style="margin-top:10px">✓ All set. Agriguard is connected.</p>`;
+ return `<h1 tabindex="-1">Connect your Agriguard controller</h1><p class="lead">Switch the controller on and keep it near you. Make sure the soil sensors are switched on too.</p>${err('dev')}
+<section class="card" aria-live="polite">${d.skipped?'<p><b>Skipped.</b> You can connect your controller later from Settings.</p><p style="margin-top:10px"><button class="btn sm" type="button" data-act="unskip">Connect now instead</button></p>':(h||'<p>We will look for your controller and then pair one sensor for each zone.</p>')}${find&&!d.skipped?`<p style="margin-top:14px">${find}</p>`:''}</section><p class="hint">Demo: this page simulates pairing. No real hardware is contacted.</p>`}
+function sDone(){const f=D.farm,t=D.tank,c=capNow(),lv=+t.level;
+ return `<h1 tabindex="-1">You are all set 🌱</h1><p class="lead">Agriguard now has what it needs to start watching your farm.</p>
+<section class="card"><h2>Your farm</h2><dl><dt>Farm</dt><dd>${esc(f.name)}</dd><dt>Location</dt><dd>${esc(f.place)}, ${esc(f.region||f.country)}</dd><dt>Crops</dt><dd>${esc(f.crop)} · ${esc(f.size)}</dd><dt>Watering time</dt><dd>${esc(f.window)}</dd></dl></section>
+<section class="card"><h2>Your water</h2><dl><dt>Tank</dt><dd>${fmtL(c)}, about ${lv}% full</dd><dt>Safety reserve</dt><dd>${t.reserve}% (${fmtL(c*t.reserve/100)})</dd><dt>Daily limit</dt><dd>${fmtL(t.bmode==='custom'?+t.budget:recBudget())}${t.bmode==='auto'?' (recommended)':''}</dd><dt>Refilled by</dt><dd>${esc(t.refill)}</dd></dl></section>
+<section class="card"><h2>Your zones</h2><dl>${D.zones.map(z=>`<dt>${esc(z.name)}</dt><dd>${esc(z.detail||z.crop)} · ${z.soil==='Unknown'?'Soil to be learned':z.soil} · ${z.feel} now</dd>`).join('')}</dl></section>
+<section class="card"><h2>Controller</h2><p>${D.dev.state==='done'?'<span class="ok">✓ Connected, with all sensors paired.</span>':'Not connected yet. You can do this later in Settings.'}</p></section>
+<p class="hint">Agriguard starts from the answers above and keeps learning how each zone dries after every watering.</p>`}
+
+/* ---------- Validation ---------- */
+function validate(){const e={},a=D.acc,f=D.farm,t=D.tank,pos=v=>v!==''&&+v>0&&isFinite(+v);
+ if(step===0){
+  if(a.name.trim().length<2)e['acc.name']='Please enter your full name.';
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(a.email.trim()))e['acc.email']='Please enter a valid email, like name@example.com.';
+  if(a.pw.length<8||!/[A-Za-z]/.test(a.pw)||!/\d/.test(a.pw))e['acc.pw']='Your password needs 8 or more characters, with a letter and a number.';
+  if(a.pw2!==a.pw||!a.pw2)e['acc.pw2']='The two passwords do not match.';
+  if(!a.terms)e['acc.terms']='Please tick the box to continue.'}
+ if(step===1){
+  if(!f.name.trim())e['farm.name']='Please give your farm a name.';
+  if(!f.country)e['farm.country']='Please choose your country.';
+  if(!f.place.trim())e['farm.place']='Please enter your nearest town or area.';
+  if(f.lat!==''&&!(+f.lat>=-90&&+f.lat<=90))e['farm.lat']='Latitude must be between -90 and 90.';
+  if(f.lng!==''&&!(+f.lng>=-180&&+f.lng<=180))e['farm.lng']='Longitude must be between -180 and 180.';
+  if(!f.crop)e['farm.crop']='Please choose what you mainly grow.';
+  if(!f.size)e['farm.size']='Please choose the size of your farm.'}
+ if(step===2){
+  if(!t.profile)e['tank.profile']='Please choose your tank.';
+  if(['other','custom'].includes(t.profile)){if(!pos(t.cap)||+t.cap>100000)e['tank.cap']='Enter the tank size in litres, for example 5000.';
+   if(t.profile==='custom'){if(!pos(t.height))e['tank.height']='Enter the tank height in centimetres.';if(!pos(t.dia))e['tank.dia']='Enter the tank width in centimetres.'}}
+  if(!t.level)e['tank.level']='Please tell us roughly how full the tank is.';
+  if(!(t.reserve>=10&&t.reserve<=60))e['tank.reserve']='Choose a reserve between 10% and 60%.';
+  if(!t.refill)e['tank.refill']='Please choose how the tank is refilled.';
+  if(t.bmode==='custom'&&(!pos(t.budget)||+t.budget>capNow()))e['tank.budget']='Enter a daily limit above 0 and not more than the tank size.'}
+ if(step===3){const seen={};D.zones.forEach((z,i)=>{const n=z.name.trim().toLowerCase();
+  if(!n)e[`zones.${i}.name`]='Please name this zone.';else if(seen[n])e[`zones.${i}.name`]='Two zones have the same name. Please make them different.';seen[n]=1;
+  if(!z.crop)e[`zones.${i}.crop`]='Please choose what is grown here.';if(!z.method)e[`zones.${i}.method`]='Please choose how it is watered.';
+  if(z.area!==''&&!pos(z.area))e[`zones.${i}.area`]='Enter the size as a number above 0.'})}
+ if(step===4)D.zones.forEach((z,i)=>{if(!z.soil)e[`zones.${i}.soil`]='Please choose the soil type, or "I am not sure".';if(!z.feel)e[`zones.${i}.feel`]='Please tell us how the soil feels now.'});
+ if(step===5&&D.dev.state!=='done'&&!D.dev.skipped)e['dev']='Search for your controller, or choose Skip for now.';
+ return e}
+
+/* ---------- Shell ---------- */
+function bar(){if(login)return`<span></span><button class="btn p" data-act="dologin">Log in</button>`;
+ if(step===0)return`<span></span><button class="btn p" data-act="next">Create account</button>`;
+ if(step===6)return`<button class="btn" data-act="back">Back</button><a class="btn p" href="https://claude.ai/artifact/VZev3Xh3nefa1VWzMVZ6ib">Open my dashboard</a>`;
+ return`<button class="btn" data-act="back">Back</button><button class="btn p" data-act="next">${step===5?'Finish setup':'Continue'}</button>`}
+function render(fid){
+ $('#steps').innerHTML=NAMES.map((n,i)=>`<li class="${i<step?'ok':i===step?'on':''}" ${i===step?'aria-current="step"':''}><b>${i<step?'✓':i+1}</b>${n}</li>`).join('');
+ $('#mp').innerHTML=`<p>Step ${step+1} of ${NAMES.length} · ${NAMES[step]}</p><div><i style="width:${(step+1)/NAMES.length*100}%"></i></div>`;
+ const n=Object.keys(E).length,top=n?`<div class="alert" role="alert">Please fix ${n===1?'1 thing':n+' things'} below to continue.</div>`:'';
+ $('#pane').innerHTML=(login?sLogin():top+[sAcc,sFarm,sTank,sZones,sSoil,sDev,sDone][step]());
+ $('#bar').innerHTML=bar();if(!login&&step===0)rules();
+ if(fid){const x=document.getElementById(fid);x&&x.focus()}}
+function rules(){const p=D.acc.pw,r=[[p.length>=8,'At least 8 characters'],[/[A-Za-z]/.test(p),'A letter'],[/\d/.test(p),'A number']],el=$('#rules');if(el)el.innerHTML=r.map(x=>`<li class="${x[0]?'y':''}">${x[0]?'✓':'○'} ${x[1]}</li>`).join('')}
+function focusErr(){const k=Object.keys(E)[0],id=eid(k);let x=document.getElementById(id);if(x&&x.tagName==='FIELDSET')x=x.querySelector('input');if(x){x.focus();x.scrollIntoView({block:'center'})}else{$('#pane').scrollIntoView()}}
+function goStep(n){tok++;step=n;E={};render();window.scrollTo(0,0);$('#pane h1').focus()}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function pairing(){const my=++tok,d=D.dev;d.state='search';render();await sleep(1600);if(my!==tok)return;d.state='found';render()}
+async function connect(){const my=++tok,d=D.dev;d.state='conn';render();await sleep(1000);if(my!==tok)return;d.state='pair';d.sensors=[];render();
+ for(let i=0;i<D.zones.length;i++){await sleep(900);if(my!==tok)return;d.sensors[i]=true;render()}d.state='done';render()}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;if(a!=='next'&&a!=='dologin')e.preventDefault();
+ if(a==='next'){E=validate();if(Object.keys(E).length){render();focusErr()}else goStep(step+1)}
+ else if(a==='back')goStep(step-1);
+ else if(a==='pw'){const o=$('#acc-pw'),s=o.type==='password';o.type=s?'text':'password';$('#acc-pw2').type=o.type;b.textContent=s?'Hide':'Show'}
+ else if(a==='zp'){if(D.zones.length<6){D.zones.push(mkZone(D.zones.length+1));render()}}
+ else if(a==='zm'){if(D.zones.length>1){D.zones.pop();render()}}
+ else if(a==='loc'){const m=$('#locmsg');m.textContent='Finding your location...';
+  if(!navigator.geolocation){m.textContent='Your device cannot share its location. Please type your nearest town.';return}
+  navigator.geolocation.getCurrentPosition(p=>{D.farm.lat=p.coords.latitude.toFixed(4);D.farm.lng=p.coords.longitude.toFixed(4);m.textContent='Location saved from your device. Please also confirm the nearest town above.'},()=>{m.textContent='We could not get your location. Please type your nearest town instead.'},{timeout:8000})}
+ else if(a==='search')pairing();else if(a==='connect')connect();
+ else if(a==='skip'){D.dev.skipped=true;E={};render()}else if(a==='unskip'){D.dev.skipped=false;render()}
+ else if(a==='login'){login=true;render()}else if(a==='signup'){login=false;render()}
+ else if(a==='forgot'){$('#lgmsg').innerHTML='<div class="note">Demo mode: password reset is not connected yet.</div>'}
+ else if(a==='dologin'){const l=D.lg||{};if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((l.email||'').trim())||!l.pw){$('#lgmsg').innerHTML='<div class="alert" role="alert">Please enter your email and password.</div>'}else $('#lgmsg').innerHTML='<div class="note">Demo mode: no account server is connected yet, so logging in is switched off. Create an account to try the setup.</div>'}});
+document.addEventListener('input',e=>{const k=e.target.dataset.k;if(!k)return;
+ if(k.startsWith('lg.')){D.lg=D.lg||{};D.lg[k.slice(3)]=e.target.value;return}
+ set(k,e.target.type==='checkbox'?e.target.checked:e.target.value);
+ if(E[k]){delete E[k];const p=document.getElementById('e-'+eid(k));p&&p.remove();e.target.removeAttribute('aria-invalid')}
+ if(k==='acc.pw')rules();
+ if(k==='tank.reserve'){D.tank.reserve=+e.target.value;$('#rv').textContent=D.tank.reserve}
+ if(k.startsWith('tank.')){const s=$('#tsum');if(s)s.innerHTML=tsum()}});
+document.addEventListener('change',e=>{const k=e.target.dataset.k;if(!k||k.startsWith('lg.'))return;
+ if(k==='tank.reserve'||e.target.dataset.r){set(k,e.target.value);if(k==='tank.reserve')D.tank.reserve=+e.target.value;render(e.target.id)}});
+render();
+</script>
+
+</body>
+</html>

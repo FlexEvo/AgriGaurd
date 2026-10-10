@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agriguard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+
+<style>
+:root{--bg:#F3F6F1;--sf:#fff;--ink:#1B2A21;--mu:#566559;--ln:#DCE4DA;--gr:#2B7A4B;--grs:#DDF1E4;--bl:#1D6AA5;--bld:#14507F;--bls:#DCEBF7;--am:#8F5B0A;--ams:#FBEBCB;--rd:#A8322B;--rds:#F9DFDC;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0F1913;--sf:#17241C;--ink:#E6EFE8;--mu:#9DB0A2;--ln:#263628;--gr:#5CC785;--grs:#17301F;--bl:#6DB6EA;--bld:#2F7DB5;--bls:#12293B;--am:#F0B656;--ams:#35290F;--rd:#F0847B;--rds:#3A1B18}}
+:root[data-theme="dark"]{--bg:#0F1913;--sf:#17241C;--ink:#E6EFE8;--mu:#9DB0A2;--ln:#263628;--gr:#5CC785;--grs:#17301F;--bl:#6DB6EA;--bld:#2F7DB5;--bls:#12293B;--am:#F0B656;--ams:#35290F;--rd:#F0847B;--rds:#3A1B18}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.5 "Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif}
+h1,h2,h3,p{margin:0}
+h1{font-size:clamp(24px,3vw,30px);font-weight:700}
+h2{font-size:19px;font-weight:700;margin-bottom:12px}
+h3{font-size:16px;font-weight:700}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--bl);outline-offset:2px}
+.app{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:100vh}
+.side{background:var(--sf);border-right:1px solid var(--ln);padding:22px 14px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.brand{font-weight:700;font-size:20px;padding:0 10px 18px;display:flex;gap:8px;align-items:center}
+.brand i{font-style:normal;width:30px;height:30px;border-radius:9px;background:var(--gr);color:#fff;display:grid;place-items:center}
+.nav{display:flex;align-items:center;gap:12px;border:0;background:none;padding:11px 12px;border-radius:12px;text-align:left;width:100%;color:var(--mu);font-weight:700}
+.nav:hover{background:var(--bg)}
+.nav[aria-current=page]{background:var(--grs);color:var(--gr)}
+.nav span{width:22px;text-align:center}
+.demo{margin-top:auto;font-size:13px;color:var(--mu);background:var(--bg);border-radius:12px;padding:10px 12px}
+main{padding:26px clamp(14px,3vw,40px) 60px;min-width:0;display:flex;flex-direction:column;gap:20px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.top p{color:var(--mu)}
+.banner{border-radius:18px;padding:18px 22px;display:flex;gap:16px;align-items:center;background:var(--grs);border-left:8px solid var(--gr)}
+.banner.warn{background:var(--ams);border-color:var(--am)}
+.banner.off{background:var(--bg);border:1px solid var(--ln);border-left:8px solid var(--mu)}
+.banner.stop{background:var(--rds);border-color:var(--rd)}
+.banner .ic{font-size:30px;line-height:1}
+.banner h2{margin:0 0 2px}
+.kpis{background:var(--sf);border:1px solid var(--ln);border-radius:18px;display:grid;grid-template-columns:repeat(4,1fr)}
+.kpi{padding:18px 20px;border-left:1px solid var(--ln);display:flex;flex-direction:column}
+.kpi:first-child{border-left:0}
+.kpi span{color:var(--mu);font-size:14px}
+.kpi b{font-size:30px;line-height:1.15}
+.kpi small{color:var(--mu)}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.two{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}
+.card{background:var(--sf);border:1px solid var(--ln);border-radius:16px;padding:18px}
+.card.tap{text-align:left;width:100%;cursor:pointer}
+.card.tap:hover{border-color:var(--gr)}
+.zc .big{font-size:40px;font-weight:700;line-height:1;margin:10px 0 2px}
+.bar{height:12px;border-radius:99px;background:var(--bg);overflow:hidden;position:relative;margin:8px 0}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--gr)}
+.bar.need i{background:var(--am)}
+.bar.off i{background:var(--mu)}
+.bar em{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink)}
+.chip{display:inline-block;border-radius:99px;padding:3px 12px;font-size:14px;font-weight:700;background:var(--grs);color:var(--gr)}
+.chip.needs,.chip.warn{background:var(--ams);color:var(--am)}
+.chip.irr{background:var(--bls);color:var(--bl)}
+.chip.off{background:var(--bg);color:var(--mu);border:1px solid var(--ln)}
+.chip.crit,.chip.stop{background:var(--rds);color:var(--rd)}
+.mu{color:var(--mu)}
+.sm{font-size:14px}
+.ba{display:flex;align-items:center;gap:8px;font-weight:700;margin-top:6px}
+.ba s{text-decoration:none;color:var(--mu);font-weight:400}
+.tankwrap{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+.tank{position:relative;width:96px;height:210px;border:3px solid var(--bld);border-radius:18px;overflow:hidden;background:var(--bls);flex:none}
+.tank .fill{position:absolute;left:0;right:0;bottom:0}
+.tank .res{position:absolute;left:0;right:0;border-top:3px dashed var(--ink)}
+.tank b{position:absolute;left:0;right:0;top:8px;text-align:center;font-size:22px;color:var(--ink)}
+.rows{flex:1;min-width:200px}
+.rows div{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-top:1px solid var(--ln)}
+.rows div:first-child{border-top:0}
+.bud{display:flex;height:22px;border-radius:99px;overflow:hidden;background:var(--bg);margin:10px 0}
+.bud i{display:block;height:100%}
+.bud .u{background:var(--bl)}
+.bud .p{background:repeating-linear-gradient(45deg,var(--bl) 0 5px,var(--bls) 5px 10px)}
+.ok{color:var(--gr);font-weight:700}
+.bad{color:var(--rd);font-weight:700}
+.alloc div{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--ln)}
+.al{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--ln)}
+.al:first-child{border-top:0}
+.btn{border:1px solid var(--ln);background:var(--sf);border-radius:12px;padding:10px 16px;font-weight:700}
+.btn.p{background:var(--gr);border-color:var(--gr);color:#fff}
+.back{background:none;border:0;color:var(--bl);font-weight:700;padding:0;margin-bottom:6px}
+.flt{display:flex;gap:10px;flex-wrap:wrap}
+select,input[type=number]{background:var(--sf);border:1px solid var(--ln);border-radius:12px;padding:9px 12px}
+.tl h3{margin:18px 0 6px;color:var(--mu);font-size:15px}
+.ev{display:grid;grid-template-columns:64px 1fr;gap:12px;padding:12px 14px;background:var(--sf);border:1px solid var(--ln);border-radius:14px;margin-bottom:8px}
+.ev b{font-size:17px}
+.cons{display:flex;align-items:flex-end;gap:10px;height:170px;position:relative;margin:14px 0 4px;border-bottom:1px solid var(--ln)}
+.cons div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:13px}
+.cons i{display:block;width:100%;background:var(--bl);border-radius:8px 8px 0 0;min-height:2px}
+.cons .ln{position:absolute;left:0;right:0;border-top:2px dashed var(--ink);height:0;flex:none;pointer-events:none}
+.days{display:flex;gap:10px}.days span{flex:1;text-align:center;font-size:13px;color:var(--mu)}
+.prof{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.prof div b{display:block;font-size:22px}
+.set label{display:block;font-weight:700;margin:14px 0 6px}
+.set input[type=range]{width:100%;accent-color:var(--gr)}
+.mnav{display:none}
+.skel{padding:60px 10px;text-align:center;color:var(--mu)}
+@media (max-width:1000px){.grid{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}.kpi:nth-child(3){border-left:0}.kpi:nth-child(n+3){border-top:1px solid var(--ln)}}
+@media (max-width:860px){.app{grid-template-columns:1fr}.side{display:none}main{padding-bottom:96px}
+.mnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;background:var(--sf);border-top:1px solid var(--ln);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px));z-index:5}
+.mnav .nav{flex-direction:column;gap:2px;padding:6px 2px;font-size:13px;text-align:center;justify-content:center}}
+@media (max-width:560px){.grid{grid-template-columns:1fr}.banner{padding:14px;align-items:flex-start}.tank{width:80px;height:180px}.ev{grid-template-columns:54px 1fr}.kpi b{font-size:26px}.kpi{padding:14px}}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <aside class="side"><div class="brand"><i>🌱</i>Agriguard</div><nav id="sn" aria-label="Main"></nav><p class="demo">Demo mode. These are example values, not live farm data.</p></aside>
+  <main id="view" aria-live="polite"></main>
+</div>
+<nav class="mnav" id="mn" aria-label="Main"></nav>
+
+<script>
+/* ===== Domain logic (no UI) ===== */
+const NOW_LABEL='09:40', TARGET=65;
+const S={view:'home',zone:null,reservePct:30,budget:2000,scenario:'normal',f:{period:'7',zone:'all',type:'all'},weather:null};
+const TANK={name:'JoJo 5,000 L',cap:5000};
+const ZONES=[
+ {id:1,name:'Zone 1',crop:'Tomatoes',soil:'Loamy',moisture:64,min:45,dry:3.2,hrs:3.2},
+ {id:2,name:'Zone 2',crop:'Spinach',soil:'Clay',moisture:57,min:45,dry:2.3,hrs:3.9},
+ {id:3,name:'Zone 3',crop:'Peppers',soil:'Sandy',moisture:38,min:45,dry:3.9,hrs:4.7}];
+const LPP={1:14,2:12,3:18}; // litres needed per moisture point (demo estimate)
+const RAW=[[0,'05:00',3,590,210,31,56],[0,'05:45',2,560,190,44,66],[0,'06:30',1,580,220,47,74],
+[1,'05:00',3,570,215,32,57],[1,'05:45',2,520,180,42,64],[1,'06:30',1,560,205,45,72],[1,'18:10',3,540,200,33,55],
+[2,'05:45',2,530,185,43,65],[2,'06:30',1,540,200,46,70],[2,'18:00',3,560,210,34,58],
+[3,'05:00',3,600,225,30,56],[3,'05:45',2,520,180,44,64],[3,'06:30',1,590,215,47,73],
+[4,'05:45',2,540,190,43,65],[4,'06:30',1,580,210,46,72],[5,'05:00',3,610,230,31,58],[5,'06:30',1,570,210,45,71],
+[6,'05:45',2,530,185,42,64],[6,'06:30',1,560,205,46,70]];
+const CYCLES=RAW.map(r=>({day:r[0],time:r[1],zone:r[2],sec:r[3],L:r[4],before:r[5],after:r[6]}));
+const SCEN={normal:'Everything normal',lowtank:'Tank at protected reserve',offline:'Controller offline',estop:'Emergency stop active',sensor:'Zone 3 sensor offline',irrigating:'Zone 3 irrigating',noweather:'Weather unavailable'};
+
+const svc={
+ weather(){return new Promise((ok,no)=>setTimeout(()=>S.scenario==='noweather'?no(new Error('x')):ok({temp:19,sky:'Partly cloudy',hum:63,rain:10,rainTomorrow:10,lo:11,hi:23}),250))}
+};
+function zoneStatus(z){if(S.scenario==='sensor'&&z.id===3)return'off';if(S.scenario==='irrigating'&&z.id===3)return'irr';return z.moisture<z.min?'needs':'ok'}
+function calc(){
+ const pct=S.scenario==='lowtank'?28:68, cur=TANK.cap*pct/100, reserveL=TANK.cap*S.reservePct/100;
+ const usable=Math.max(0,cur-reserveL), used=CYCLES.filter(c=>c.day===0).reduce((a,c)=>a+c.L,0);
+ const remaining=Math.max(0,S.budget-used);
+ const plan=ZONES.map(z=>({z,L:Math.round(Math.max(8,TARGET-z.moisture)*LPP[z.id])}));
+ const projected=plan.reduce((a,p)=>a+p.L,0), expected=used+projected;
+ const canWater=Math.min(usable,remaining), fits=projected<=canWater;
+ const days=[6,5,4,3,2,1,0].map(d=>CYCLES.filter(c=>c.day===d).reduce((a,c)=>a+c.L,0));
+ return{pct,cur,reserveL,usable,used,remaining,plan,projected,expected,buffer:S.budget-expected,canWater,fits,days,avg:days.reduce((a,b)=>a+b,0)/7};
+}
+function sysState(c){
+ if(S.scenario==='estop')return'stop';if(S.scenario==='offline')return'off';
+ if(c.cur<=c.reserveL||S.scenario==='sensor')return'warn';return'ok';
+}
+function alerts(c){const a=[];
+ if(S.scenario==='estop')a.push(['crit','Emergency stop is active','Irrigation is stopped. Check the controller.']);
+ if(c.cur<=c.reserveL)a.push(['crit','Tank has reached the protected reserve','Refill soon. Watering is limited to protect your reserve.']);
+ ZONES.forEach(z=>{const s=zoneStatus(z);
+  if(s==='off')a.push(['warn',z.name+' sensor is not responding','Check it has power and is close to the controller.']);
+  if(s==='needs')a.push(['warn',z.name+' needs water','Agriguard will water it at the next irrigation window.'])});
+ const l=CYCLES[2];a.push(['info','Zone 1 irrigation completed','Moisture went from '+l.before+'% to '+l.after+'% using '+l.L+' L.']);
+ return a}
+function insights(c){const out=[],z1=ZONES[0],z3=ZONES[2];
+ out.push('Zone 3 dries '+Math.round((z3.dry/z1.dry-1)*100)+'% faster than Zone 1.');
+ const fast=ZONES.reduce((a,b)=>b.dry>a.dry?b:a);
+ if(S.weather&&S.weather.rainTomorrow<20)out.push('Rain is unlikely tomorrow. '+fast.name+' may need irrigation earlier than usual.');
+ out.push('Over the last 7 days you used about '+fmt(c.avg)+' a day, '+Math.round(c.avg/S.budget*100)+'% of your daily budget.');
+ out.push('At this pace, about '+fmt(Math.max(0,c.cur-c.projected-c.avg))+' will remain in the tank after tomorrow\'s irrigation.');
+ return out}
+const lastCycle=id=>CYCLES.find(c=>c.zone===id);
+const zoneCycles=id=>CYCLES.filter(c=>c.zone===id);
+const avg=(a,k)=>a.reduce((s,x)=>s+x[k],0)/a.length;
+
+/* ===== Helpers ===== */
+const fmt=n=>Math.round(n).toLocaleString('en-ZA')+' L';
+const dur=s=>Math.floor(s/60)+'m '+String(s%60).padStart(2,'0')+'s';
+function dayLabel(d){if(d===0)return'Today';if(d===1)return'Yesterday';const x=new Date();x.setDate(x.getDate()-d);return x.toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'short'})}
+const CH={ok:['ok','✓ Healthy'],needs:['needs','💧 Needs water'],irr:['irr','↻ Irrigating'],off:['off','● Sensor offline']};
+const chip=(k,t)=>`<span class="chip ${k}">${t}</span>`;
+function lineChart(z){
+ const h=Math.round(z.hrs),last=lastCycle(z.id),pts=[];
+ for(let t=-23;t<=0;t++){let v;
+  if(t<-h)v=last.before+z.dry*(-h-t)*0.55+ (t%2?0.4:-0.4);
+  else if(t===-h)v=last.after;
+  else v=last.after+(z.moisture-last.after)*((t+h)/h);
+  pts.push(Math.max(5,Math.min(95,v)))}
+ const X=i=>20+i*(560/23),Y=v=>10+(100-v)*1.4;
+ const path=pts.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join(' ');
+ return `<svg viewBox="0 0 600 170" width="100%" role="img" aria-label="Moisture over the last 24 hours, now ${z.moisture}%"><line x1="20" x2="590" y1="${Y(z.min)}" y2="${Y(z.min)}" stroke="var(--am)" stroke-dasharray="6 5" stroke-width="2"/><text x="24" y="${Y(z.min)-5}" font-size="12" fill="var(--am)">Water below ${z.min}%</text><path d="${path} L${X(23)} 150 L20 150Z" fill="var(--bls)" opacity=".6"/><path d="${path}" fill="none" stroke="var(--bl)" stroke-width="3" stroke-linejoin="round"/><text x="20" y="166" font-size="12" fill="var(--mu)">24 hours ago</text><text x="590" y="166" font-size="12" fill="var(--mu)" text-anchor="end">Now</text></svg>`}
+
+/* ===== Components ===== */
+function banner(c){const s=sysState(c),B={
+ ok:['','✓','System online','Irrigation is operating normally. No action required.'],
+ warn:['warn','⚠','System warning',c.cur<=c.reserveL?'Your tank has reached the protected reserve. Watering is limited to protect it. Consider refilling.':'Zone 3 sensor is not responding. Check that it has power and is close to the controller.'],
+ off:['off','●','System offline','Agriguard controller is currently offline. It keeps watering on its own using its saved settings. Showing last known values.'],
+ stop:['stop','⛔','Emergency stop active','Irrigation has been stopped. All valves have been commanded closed. Check the physical controller before restarting.']}[s];
+ return `<section class="banner ${B[0]}"><span class="ic" aria-hidden="true">${B[1]}</span><div><h2>${B[2]}</h2><p>${B[3]}</p></div></section>`}
+function kpis(c){const need=ZONES.some(z=>zoneStatus(z)==='needs');
+ const am=ZONES.reduce((a,z)=>a+z.moisture,0)/3;
+ const K=[['Tank level',c.pct+'%',fmt(c.cur)+' in the tank'],['Used today',fmt(c.used),Math.round(c.used/S.budget*100)+'% of daily budget'],['Average moisture',Math.round(am)+'%','Across 3 active zones'],['Next irrigation',need?'18:00':'06:30',need?'Today · Zone 3 first':'Tomorrow morning']];
+ return `<section class="kpis" aria-label="Key numbers">${K.map(k=>`<div class="kpi"><span>${k[0]}</span><b>${k[1]}</b><small>${k[2]}</small></div>`).join('')}</section>`}
+function zoneCard(z){const st=zoneStatus(z),l=lastCycle(z.id),k=CH[st];
+ return `<button class="card tap zc" data-zone="${z.id}" aria-label="Open ${z.name} details"><div style="display:flex;justify-content:space-between;gap:8px"><h3>${z.name}</h3>${chip(k[0],k[1])}</div><p class="mu sm">${z.crop} · ${z.soil}</p><div class="big">${st==='off'?'—':z.moisture+'%'}</div><p class="mu sm">Soil moisture${st==='off'?' (last known '+z.moisture+'%)':''}</p>
+ <div class="bar ${st==='needs'?'need':st==='off'?'off':''}"><i style="width:${z.moisture}%"></i><em style="left:${z.min}%" title="Watering threshold"></em></div>
+ ${st==='irr'?'<p class="ba">Irrigating now <s>84 L · 04:21</s></p>':`<p class="sm mu">Last irrigation: Today · ${l.time}</p><p class="ba">${l.before}% → ${l.after}% <s>${l.L} L</s></p>`}</button>`}
+function tankCard(c,full){
+ const resP=S.reservePct,fp=c.pct,x=Math.min(100,resP/Math.max(fp,1)*100);
+ return `<section class="card"><h2>${TANK.name}</h2><div class="tankwrap"><div class="tank" role="img" aria-label="Tank ${c.pct}% full, reserve line at ${resP}%"><div class="fill" style="height:${fp}%;background:linear-gradient(to top,var(--bld) 0 ${x}%,var(--bl) ${x}% 100%)"></div><div class="res" style="bottom:${resP}%"></div><b>${c.pct}%</b></div>
+ <div class="rows"><div><span>Water in tank</span><b>${fmt(c.cur)}</b></div><div><span>Protected reserve</span><b>${fmt(c.reserveL)}</b></div><div><span>Usable water</span><b>${fmt(c.usable)}</b></div><div><span>Daily budget</span><b>${fmt(S.budget)}</b></div>${full?`<div><span>Used today</span><b>${fmt(c.used)}</b></div><div><span>Remaining budget</span><b>${fmt(c.remaining)}</b></div>`:''}</div></div>
+ <p class="sm mu" style="margin-top:10px">The dashed line is the reserve Agriguard will not use.</p></section>`}
+function budgetCard(c){const u=c.used/S.budget*100,p=Math.min(100-u,c.projected/S.budget*100);
+ return `<section class="card"><h2>Today's water budget</h2><p class="mu sm">${fmt(c.used)} used of ${fmt(S.budget)}</p><div class="bud" role="img" aria-label="${fmt(c.used)} used, ${fmt(c.projected)} still expected"><i class="u" style="width:${u}%"></i><i class="p" style="width:${p}%"></i></div>
+ <div class="rows"><div><span>Used</span><b>${fmt(c.used)}</b></div><div><span>Remaining</span><b>${fmt(c.remaining)}</b></div><div><span>Expected usage today</span><b>${fmt(c.expected)}</b></div><div><span>Buffer</span><b>${fmt(c.buffer)}</b></div></div>
+ <p style="margin-top:10px" class="${c.fits?'ok':'bad'}">${c.fits?'✓ You have enough water for today\'s expected irrigation.':'⚠ Not enough usable water for everything planned today. Agriguard will water the driest zones first.'}</p></section>`}
+function allocCard(c){return `<section class="card alloc"><h2>Smart water allocation</h2><p class="mu sm">Water left to give today, shared by how thirsty each zone is.</p><div style="margin-top:8px">${c.plan.map(p=>`<div><span>${p.z.name} · ${p.z.crop}</span><b>${fmt(p.L)}</b></div>`).join('')}<div><span><b>Total</b></span><b>${fmt(c.projected)}</b></div></div><p class="sm ${c.fits?'ok':'bad'}" style="margin-top:8px">${c.fits?'✓ Allocation fits today\'s water budget.':'⚠ Allocation is more than the water available.'}</p></section>`}
+function weatherCard(){const w=S.weather;
+ if(!w)return `<section class="card"><h2>Weather</h2><p class="mu">Weather is not available right now. Soil, tank and irrigation information are still up to date.</p></section>`;
+ return `<section class="card"><h2>Weather</h2><div style="display:flex;gap:16px;align-items:baseline"><b style="font-size:38px">${w.temp}°C</b><span>${w.sky}</span></div><p class="mu sm">Humidity ${w.hum}% · Rain chance ${w.rain}% · Low ${w.lo}°C · High ${w.hi}°C</p><p style="margin-top:8px" class="ok">${w.rain<30?'✓ No rain expected in the irrigation window.':'Rain may arrive. Agriguard will adjust.'}</p></section>`}
+function alertsCard(c,n){return `<section class="card"><h2>Alerts</h2>${alerts(c).slice(0,n||9).map(a=>`<div class="al"><span>${chip(a[0]==='crit'?'crit':a[0]==='warn'?'warn':'ok',a[0]==='crit'?'● Critical':a[0]==='warn'?'⚠ Attention':'✓ Info')}</span><div><b>${a[1]}</b><p class="mu sm">${a[2]}</p></div></div>`).join('')}</section>`}
+function insightCard(c){return `<section class="card"><h2>What Agriguard noticed</h2>${insights(c).map(t=>`<div class="al"><span aria-hidden="true">💡</span><p>${t}</p></div>`).join('')}</section>`}
+
+/* ===== Views ===== */
+function vHome(c){return `<div class="top"><div><h1>Your farm</h1><p>Mokoena Family Farm · updated just now (${NOW_LABEL})</p></div></div>${banner(c)}${kpis(c)}<div><h2>Zones</h2><div class="grid">${ZONES.map(zoneCard).join('')}</div></div><div class="two"><div style="display:grid;gap:16px">${budgetCard(c)}${alertsCard(c,3)}</div><div style="display:grid;gap:16px">${weatherCard()}${insightCard(c)}</div></div>`}
+function vZones(){return `<div class="top"><div><h1>Zones</h1><p>Tap a zone to see how it behaves.</p></div></div><div class="grid">${ZONES.map(zoneCard).join('')}</div>`}
+function vZone(c){const z=ZONES.find(x=>x.id===S.zone),st=zoneStatus(z),cy=zoneCycles(z.id),l=cy[0],k=CH[st];
+ return `<button class="back" data-go="zones">← All zones</button><div class="top"><div><h1>${z.name}</h1><p>${z.crop} · ${z.soil} soil</p></div>${chip(k[0],k[1])}</div>
+ <div class="two"><section class="card"><h2>Moisture now: ${st==='off'?'unknown':z.moisture+'%'}</h2>${lineChart(z)}</section>
+ <section class="card"><h2>Today</h2><div class="rows"><div><span>Last irrigation</span><b>${l.time}</b></div><div><span>Water used</span><b>${fmt(l.L)}</b></div><div><span>Before</span><b>${l.before}%</b></div><div><span>After</span><b>${l.after}%</b></div></div></section></div>
+ <section class="card"><h2>How this zone behaves</h2><div class="prof"><div><span class="mu sm">Average watering</span><b>${fmt(avg(cy,'L'))}</b></div><div><span class="mu sm">Average duration</span><b>${dur(Math.round(avg(cy,'sec')))}</b></div><div><span class="mu sm">Drying rate</span><b>${z.dry}% per hour</b></div><div><span class="mu sm">Typical interval</span><b>${Math.round((100-z.min-20)/z.dry)} hours</b></div></div><p class="mu sm" style="margin-top:10px">Based on the last ${cy.length} irrigations. Agriguard keeps learning as more data arrives.</p><p style="margin-top:12px"><button class="btn p" data-hz="${z.id}">View full history</button></p></section>`}
+function vWater(c){const max=Math.max(S.budget,...c.days)*1.1,lab=[6,5,4,3,2,1,0].map(d=>d===0?'Today':d===1?'Yest.':new Date(Date.now()-d*864e5).toLocaleDateString('en-ZA',{weekday:'short'}));
+ return `<div class="top"><div><h1>Water</h1><p>What you have, what is protected, and what is planned.</p></div></div><div class="two">${tankCard(c,true)}${budgetCard(c)}</div><div class="two">${allocCard(c)}<section class="card"><h2>Last 7 days</h2><div class="cons" role="img" aria-label="Daily water used compared with the ${fmt(S.budget)} budget">${c.days.map(d=>`<div><span>${Math.round(d)}</span><i style="height:${d/max*135}px"></i></div>`).join('')}<span class="ln" style="bottom:${S.budget/max*135}px"></span></div><div class="days">${lab.map(l=>`<span>${l}</span>`).join('')}</div><p class="sm mu" style="margin-top:8px">Dashed line = daily budget (${fmt(S.budget)}).</p></section></div>`}
+function vHistory(){const f=S.f,list=CYCLES.filter(x=>x.day<(f.period==='1'?1:7)&&(f.zone==='all'||x.zone==+f.zone));
+ const days=[...new Set(list.map(x=>x.day))];
+ const sel=(id,opts,v)=>`<select id="${id}" aria-label="${id}">${opts.map(o=>`<option value="${o[0]}" ${o[0]==v?'selected':''}>${o[1]}</option>`).join('')}</select>`;
+ return `<div class="top"><div><h1>Irrigation history</h1><p>Each watering, with the moisture before and after.</p></div></div><div class="flt">${sel('fPeriod',[['7','Last 7 days'],['1','Today only']],f.period)}${sel('fZone',[['all','All zones'],[1,'Zone 1'],[2,'Zone 2'],[3,'Zone 3']],f.zone)}${sel('fType',[['all','All activity'],['irr','Irrigation only']],f.type)}</div>
+ <div class="tl">${days.length?days.map(d=>`<h3>${dayLabel(d)}</h3>${list.filter(x=>x.day===d).sort((a,b)=>b.time.localeCompare(a.time)).map(x=>`<div class="ev"><b>${x.time}</b><div><b>${ZONES[x.zone-1].name}</b> <span class="mu">· ${dur(x.sec)} · ${fmt(x.L)}</span><p class="ba">Moisture ${x.before}% → ${x.after}% ${chip('ok','✓ Completed')}</p></div></div>`).join('')}${f.type==='all'&&d===0?`<div class="ev"><b>—</b><div><b>Tank check</b> <span class="mu">· ${c0().pct}% full</span></div></div>`:''}`).join(''):'<div class="card" style="margin-top:14px"><p>No irrigation found for these filters. Try Last 7 days or All zones.</p></div>'}</div>`}
+const c0=()=>calc();
+function vMore(c){const dis=S.scenario==='estop';
+ return `<div class="top"><div><h1>More</h1><p>Safety, alerts and settings.</p></div></div><div class="two"><section class="card"><h2>System safety</h2><div class="rows"><div><span>Physical emergency stop</span><b>${dis?'⛔ Active':'✓ Ready'}</b></div><div><span>Controller</span><b>${S.scenario==='offline'?'● Offline':'✓ Online'}</b></div><div><span>Valves</span><b>${S.scenario==='irrigating'?'Zone 3 open':'✓ Closed'}</b></div></div><p class="sm mu" style="margin-top:10px">The red stop button on the controller is your main safety control. This page only shows its state and cannot restart watering.</p></section>
+ <section class="card set"><h2>Water settings</h2><label for="rs">Protected reserve: <span id="rv">${S.reservePct}</span>%</label><input id="rs" type="range" min="10" max="60" step="5" value="${S.reservePct}"><p class="sm mu">Recommended: 30%. Water below this line is kept for emergencies.</p><label for="bd">Daily water budget (litres)</label><input id="bd" type="number" min="100" max="10000" step="50" value="${S.budget}" inputmode="numeric"><p id="bdm" class="sm bad" role="alert"></p></section></div>
+ ${alertsCard(c)}<section class="card set"><h2>Try a situation</h2><p class="mu sm">Demo only. See how Agriguard looks when something changes.</p><label for="sc" class="sm">Situation</label><select id="sc">${Object.entries(SCEN).map(o=>`<option value="${o[0]}" ${o[0]===S.scenario?'selected':''}>${o[1]}</option>`).join('')}</select></section>`}
+
+/* ===== Shell ===== */
+const NAV=[['home','Home','⌂'],['zones','Zones','▦'],['water','Water','💧'],['history','History','◷'],['more','More','⋯']];
+function nav(){const h=NAV.map(n=>`<button class="nav" data-go="${n[0]}" ${(S.view===n[0]||(S.view==='zone'&&n[0]==='zones'))?'aria-current="page"':''}><span aria-hidden="true">${n[2]}</span>${n[1]}</button>`).join('');$('#sn').innerHTML=h;$('#mn').innerHTML=h}
+function render(){const c=calc(),V={home:vHome,zones:vZones,zone:vZone,water:vWater,history:vHistory,more:vMore};$('#view').innerHTML=(S.scenario==='offline'&&S.view!=='more'?'':'')+V[S.view](c);nav()}
+const $=s=>document.querySelector(s);
+function go(v,z){S.view=v;if(z)S.zone=z;render();window.scrollTo(0,0)}
+document.addEventListener('click',e=>{
+ const g=e.target.closest('[data-go]'),z=e.target.closest('[data-zone]'),h=e.target.closest('[data-hz]');
+ if(h){S.f.zone=h.dataset.hz;go('history')}else if(z)go('zone',+z.dataset.zone);else if(g)go(g.dataset.go)});
+document.addEventListener('input',e=>{if(e.target.id==='rs'){S.reservePct=+e.target.value;$('#rv').textContent=S.reservePct}
+ if(e.target.id==='bd'){const v=+e.target.value,m=$('#bdm');if(v>=100&&v<=10000){S.budget=v;m.textContent=''}else m.textContent='Enter a budget between 100 and 10,000 litres.'}});
+document.addEventListener('change',e=>{const id=e.target.id;
+ if(id==='fPeriod')S.f.period=e.target.value;else if(id==='fZone')S.f.zone=e.target.value;else if(id==='fType')S.f.type=e.target.value;
+ else if(id==='sc'){S.scenario=e.target.value;loadWeather().then(render);return}
+ else if(id!=='rs'&&id!=='bd')return;
+ render();if(id==='rs'||id==='bd')$('#'+id).focus()});
+const loadWeather=()=>svc.weather().then(w=>S.weather=w).catch(()=>S.weather=null);
+$('#view').innerHTML='<p class="skel">Loading your farm...</p>';nav();
+loadWeather().then(render);
+</script>
+
+</body>
+</html>

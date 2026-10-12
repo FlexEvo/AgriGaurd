@@ -29,6 +29,7 @@ function App() {
   const [farm, setFarm] = useState(null);
   const [zones, setZones] = useState([]);
   const [readings, setReadings] = useState([]);
+  const [irrigationCycles, setIrrigationCycles] = useState([]);
   const [tank, setTank] = useState(null);
   const [device, setDevice] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -58,7 +59,7 @@ function App() {
       const selectedFarm = farms?.[0] ?? null;
       setFarm(selectedFarm);
       if (!selectedFarm) {
-        setZones([]); setReadings([]); setTank(null); setDevice(null);
+        setZones([]); setReadings([]); setIrrigationCycles([]); setTank(null); setDevice(null);
         setPage("setup");
         return;
       }
@@ -89,6 +90,14 @@ function App() {
       } else {
         setReadings([]); setTank(null);
       }
+      const { data: cycleRows, error: cycleError } = await supabase
+        .from("irrigation_cycles")
+        .select("id,zone_id,started_at,ended_at,duration_seconds,moisture_before_percent,moisture_after_percent,water_used_l,trigger_reason,status,cycle_number")
+        .eq("farm_id", selectedFarm.id)
+        .order("started_at", { ascending: false })
+        .limit(25);
+      if (cycleError) throw cycleError;
+      setIrrigationCycles(cycleRows ?? []);
       setLastUpdated(new Date());
     } catch (e) {
       setError(e?.message || "Could not load farm data. Check database permissions and connection.");
@@ -126,6 +135,11 @@ function App() {
       }
     } catch (e) { setError(e?.message || "Authentication failed."); }
     finally { setBusy(false); }
+  }
+
+  function resizeZones(count) {
+    const safeCount = Math.max(1, Math.min(12, Number(count) || 1));
+    setZonesInput(old => Array.from({ length: safeCount }, (_, i) => old[i] || { name: "Zone " + (i + 1), soil_type: "loamy" }));
   }
 
   async function createFarm(event) {
@@ -212,7 +226,11 @@ function App() {
         h("label", { className: "field" }, h("span", null, "Tank capacity (litres)"),
           h("select", { value: tankCapacity, onChange: e => setTankCapacity(e.target.value) },
             ...[2000,5250,5500,10000,15000,20000].map(n => h("option", { value: String(n), key: n }, n.toLocaleString() + " L")))),
-        h("div", { className: "section-heading" }, h("h2", null, "Irrigation zones"), h("p", { className: "muted" }, "Choose a soil type for each zone.")),
+        h("div", { className: "section-heading zone-count-heading" },
+          h("div", null, h("h2", null, "Irrigation zones"), h("p", { className: "muted" }, "Choose how many zones your farm has, then set each zone name and soil type.")),
+          h("label", { className: "field zone-count-field" }, h("span", null, "Number of zones"),
+            h("select", { value: String(zonesInput.length), onChange: e => resizeZones(e.target.value) },
+              ...Array.from({ length: 12 }, (_, i) => i + 1).map(n => h("option", { value: String(n), key: n }, n + (n === 1 ? " zone" : " zones")))))),
         ...zonesInput.map((z, i) => h("div", { className: "zone-setup", key: i },
           h("label", { className: "field" }, h("span", null, `Zone ${i + 1} name`),
             h("input", { value: z.name, onChange: e => setZonesInput(old => old.map((v, j) => j === i ? { ...v, name: e.target.value } : v)), required: true })),
@@ -294,6 +312,29 @@ function App() {
             }))
           )) : h("div", { className: "empty-state" }, h("p", null, device ? "The device is registered, but no sensor readings are available to this account yet." : "No controller is registered to this farm yet.")),
         ),
+        h("section", { className: "panel" },
+          h("div", { className: "panel-heading" },
+            h("div", null, h("h2", null, "Irrigation history"), h("p", { className: "muted" }, "Recent irrigation cycles recorded by Agriguard")),
+            h("span", { className: "small-muted" }, irrigationCycles.length + " recent cycle(s)")),
+          irrigationCycles.length ? h("ol", { className: "timeline" }, ...irrigationCycles.map(cycle => {
+            const zone = zones.find(z => z.id === cycle.zone_id);
+            const status = (cycle.status || "unknown").replace(/_/g, " ");
+            return h("li", { className: "timeline-item", key: cycle.id },
+              h("span", { className: "timeline-marker " + (cycle.status === "completed" ? "completed" : cycle.status === "emergency_stopped" || cycle.status === "failed" ? "warning" : "") }),
+              h("div", { className: "timeline-content" },
+                h("div", { className: "timeline-title-row" },
+                  h("h3", null, zone?.name || "Unmapped zone"),
+                  h("span", { className: "cycle-status status-" + (cycle.status || "unknown") }, status)),
+                h("p", { className: "small-muted" }, formatDate(cycle.started_at) + (cycle.ended_at ? " · Ended " + formatDate(cycle.ended_at) : " · In progress")),
+                h("div", { className: "timeline-facts" },
+                  h("span", null, "Duration: " + (cycle.duration_seconds == null ? "—" : formatDuration(cycle.duration_seconds))),
+                  h("span", null, "Water: " + (cycle.water_used_l == null ? "—" : Number(cycle.water_used_l).toLocaleString(undefined, { maximumFractionDigits: 1 }) + " L")),
+                  h("span", null, "Moisture: " + (cycle.moisture_before_percent == null ? "—" : Number(cycle.moisture_before_percent).toFixed(1) + "%") + " → " + (cycle.moisture_after_percent == null ? "—" : Number(cycle.moisture_after_percent).toFixed(1) + "%"))),
+                cycle.trigger_reason ? h("p", { className: "timeline-reason" }, "Reason: " + cycle.trigger_reason) : null));
+          })) : h("div", { className: "empty-state" },
+            h("h3", null, "No irrigation history yet"),
+            h("p", null, "Irrigation cycles will appear here once the ESP32 sends cycle records to Supabase. No sample history is shown as real data."))
+        ),
         h("footer", { className: "dashboard-footer" }, "Data refreshes every 15 seconds while this page is open. Last refresh: " + (lastUpdated ? lastUpdated.toLocaleString() : "not yet") + ".")
       )
     );
@@ -310,6 +351,16 @@ function metric(label, value, detail, symbol) {
     h("div", { className: "metric-value" }, value),
     h("p", { className: "muted metric-detail" }, detail)
   );
+}
+function formatDuration(value) {
+  const seconds = Math.max(0, Math.round(Number(value) || 0));
+  if (seconds < 60) return seconds + "s";
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  if (minutes < 60) return remainder ? minutes + "m " + remainder + "s" : minutes + "m";
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes ? hours + "h " + remainingMinutes + "m" : hours + "h";
 }
 function formatDate(value) {
   if (!value) return "—";
